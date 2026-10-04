@@ -85,6 +85,22 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .gi{display:block;width:100%;max-height:36vh;object-fit:contain}
 #title.tfc{background:linear-gradient(90deg,#ff2bd6,#f5ff3b,#39ff88,#00f0ff,#ff2bd6);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;animation:rb 1.2s linear infinite,pop .6s cubic-bezier(.2,1.6,.4,1) both;font-size:clamp(24px,7.5vw,38px)}
 #title.tcl{color:#f5ff3b;text-shadow:0 0 18px #f5ff3b;animation:pop .5s cubic-bezier(.2,1.6,.4,1) both}
+.jp{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif}
+.atile,.pc{border:1px solid;background:rgba(8,14,30,.95);padding:5px;font-size:10px;line-height:1.35;position:relative;text-align:center}
+.atile .im,.pc .im{aspect-ratio:3/4;position:relative;background:#0a1428;overflow:hidden;margin-bottom:3px}
+.atile .im span,.pc .im span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.35}
+.atile .im img,.pc .im img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.atile.on{outline:2px solid #f5ff3b;box-shadow:0 0 12px #f5ff3b}.atile .as{color:#9bc4d4;margin-top:3px}
+.atile i{position:absolute;top:2px;right:5px;font-style:normal;font-size:15px;color:#f5ff3b;font-weight:900;text-shadow:0 0 4px #000;z-index:2}
+.slots{display:flex;gap:6px;width:100%}.slot{flex:1;height:46px;border:1px dashed #2a5566;display:flex;align-items:center;justify-content:center;color:#2a5566;font-size:11px;padding:2px;line-height:1.2}
+.ens{display:flex;gap:8px;justify-content:center;width:100%}
+.en{flex:1;max-width:150px;text-align:center;border:1px solid transparent;padding:6px 2px;font-size:11px;cursor:pointer}
+.en.tg{border-color:#ff2bd6;box-shadow:0 0 12px #ff2bd6}.en.dead{opacity:.18}.en .sy{font-size:50px;line-height:1.1}
+.hb{height:6px;background:rgba(255,255,255,.12);margin-top:3px}.hb i{display:block;height:100%;background:#39ff88}
+.pcs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%}
+.pc.dead{opacity:.25}.pc.cur{outline:2px solid #f5ff3b;box-shadow:0 0 12px #f5ff3b}.pc .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log{width:100%;min-height:96px;background:rgba(0,0,0,.6);border:1px solid #2a5566;padding:8px;text-align:left;font-size:12px;line-height:1.6}
+.cmd{display:flex;gap:8px;width:100%}.cmd .b{font-size:15px;padding:14px 4px;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -118,8 +134,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const LEVELS = {
     easy:   {name:"EASY", keys:3, bpm:160, fall:1500, goal:150,  irr:[1],                                  chord:0},
     normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:300, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
-    hard:   {name:"HARD", keys:5, bpm:220, fall:500,  goal:600, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
-    veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:500,  goal:600, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
+    hard:   {name:"HARD", keys:5, bpm:220, fall:600,  goal:450, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
+    veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:600,  goal:450, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
   };
   // index.html と同じフォルダに置く。ゲーム開始のたびにランダムで1曲選ばれる
   const BGM_FILES = Array.from({length: 15}, (_, k) => "Music" + (k + 1) + ".mp3");
@@ -421,7 +437,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const SHOW = CH.map((c, k) => k).sort((a, b) => RANKS.indexOf(CH[a][1]) - RANKS.indexOf(CH[b][1]) || a - b);   // コレクションの表示順（N→R→SR→SSR→UL）
   const MAXE = {N:99, R:70, SR:50, SSR:30, UL:10};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
-  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0};
+  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], adv:0};
   try { Object.assign(S, JSON.parse(localStorage.getItem(SK) || "{}")); } catch(e){}
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
@@ -602,7 +618,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button><button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div></div>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div></div>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +
@@ -623,7 +639,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     hm.hidden = true; state = "idle";
     title.textContent = "OVERCLOCKED"; title.className = ""; ov.style.background = ""; sub.innerHTML = SUB0; startBtn.textContent = "START"; lvBox.hidden = false; ov.hidden = false;
   }
-  hm.addEventListener("click", e => { const z = e.target.closest(".zoomable"); if (z){ zoom(+z.dataset.i); return; } const id = e.target.id;
+  hm.addEventListener("click", e => { if (advClick(e)) return; const z = e.target.closest(".zoomable"); if (z){ zoom(+z.dataset.i); return; } const id = e.target.id;
     if (id === "bp") openPlay(); else if (id === "bg") show("gacha"); else if (id === "bc") show("col");
     else if (id === "bk") show("menu"); else if (id === "bd") show("data"); else if (id === "ba") addHome(); else if (id === "bsh") shareApp();
     else if (id === "cp"){ const t = $("ex"); let ok = false; t.select(); try { ok = document.execCommand("copy"); } catch(e){}
@@ -632,7 +648,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     else if (id === "ld"){ const m = importCode($("im").value); m === "OK" ? show("menu") : show("data", m); }
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
-    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
+    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], adv:0}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
   $("toHome").addEventListener("click", () => { ov.hidden = true; show("menu"); });
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
@@ -677,15 +693,128 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   // ===== 引き継ぎコード =====
   const hs = t => { let h = 7; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0; return h.toString(36); };
-  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best})); return "OC1." + b + "." + hs(b); }
+  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, adv:S.adv})); return "OC1." + b + "." + hs(b); }
   function importCode(c){
     try {
       const m = c.trim().split("."); if (m.length !== 3 || m[0] !== "OC1" || hs(m[1]) !== m[2]) return "コードが正しくありません";
       const d = JSON.parse(atob(m[1])), inv = {}, lv = {};
       for (let i = 0; i < CH.length; i++){ const n = Math.max(0, Math.min(999, (d.inv && d.inv[i]) | 0)); if (n){ inv[i] = n; lv[i] = Math.max(0, Math.min(maxE(i), n - 1, (d.lv && d.lv[i]) | 0)); } }
-      S = {pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
+      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); S = {party, adv:Math.max(0, Math.min(STAGES.length, d.adv | 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
     } catch(e){ return "コードが正しくありません"; }
   }
+  // ===== ADVENTURE（簡易コマンドバトル）=====
+  const ADV_UNLOCK = 20;   // コレクションの種類数がこの数以上になると、メニューに出現
+  const STAGES = [   // p＝敵の強さ
+    {n:"電脳の入口", p:1, e:2}, {n:"ノイズの森", p:1.8, e:2}, {n:"ジャンク街", p:3.2, e:3}, {n:"回路の谷", p:5.5, e:3},
+    {n:"ビット要塞", p:9, e:3}, {n:"オーバークロック塔", p:15, e:3}, {n:"深層ネットワーク", p:25, e:3}, {n:"システム中枢", p:42, e:1, boss:1}
+  ];
+  const ENEMY = [["▲","ノイズ・ゴースト","#00f0ff"], ["◆","グリッチ・スライム","#ff2bd6"], ["●","バグ・オーブ","#f5ff3b"], ["■","ジャンク・ゴーレム","#39ff88"], ["✚","ウイルス・コア","#9d6bff"]];   // 記号は後で画像に差し替え予定
+  const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
+  const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
+  const owned = () => SHOW.filter(i => S.inv[i]);
+  const bar = (v, m, c) => '<div class="hb"><i style="width:' + Math.max(0, v / m * 100) + '%' + (c ? ';background:' + c : '') + '"></i></div>';
+  const statTxt = i => 'HP ' + stat(i, "hp") + '<br>ATK ' + stat(i, "atk") + ' DEF ' + stat(i, "def") + '<br>MND ' + stat(i, "mnd");
+  function aView(html, keep){ const t = hm.scrollTop; hm.hidden = false; hm.className = "scr"; hm.innerHTML = '<div class="w jp">' + html + '</div>'; hm.scrollTop = keep ? t : 0; }
+  function enemyStats(k){ const st = STAGES[k], b = st.boss ? 1 : 0; return {hp:Math.round(110 * st.p * (b ? 4 : 1)), atk:Math.round(11 * st.p * (b ? 1.5 : 1)), def:Math.round(5 * st.p * (b ? 1.5 : 1))}; }
+
+  function advParty(){
+    const P = S.party;
+    aView('<div id="t2" style="font-size:26px">PARTY</div><div class="dim">4人選んでください（' + P.length + '/4）。ステータスを見て編成しましょう</div>' +
+      '<div class="slots">' + [0, 1, 2, 3].map(k => P[k] != null ? '<div class="slot" style="border:1px solid ' + RC[CH[P[k]][1]] + ';color:' + RC[CH[P[k]][1]] + '">' + CH[P[k]][0] + '</div>' : '<div class="slot">＋</div>').join("") + '</div>' +
+      '<button class="b" id="ast"' + (P.length < 4 ? " disabled" : "") + '>ステージ選択へ</button>' +
+      '<div class="g">' + owned().map(i => { const r = CH[i][1], k = P.indexOf(i);
+        return '<div class="atile' + (k >= 0 ? " on" : "") + '" data-a="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + '"><div class="im"><span>' + (i + 1) + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + ' Lv' + (lvOf(i) + 1) + '</b><br>' + CH[i][0] + '<div class="as">' + statTxt(i) + '</div>' + (k >= 0 ? '<i>' + (k + 1) + '</i>' : '') + '</div>'; }).join("") +
+      '</div><button class="b s" id="bk">← HOME</button>', true);
+  }
+  function advStage(){
+    S.party = S.party.filter(i => S.inv[i]);
+    if (S.party.length < 4) return advParty();
+    const sum = k => S.party.reduce((a, i) => a + stat(i, k), 0);
+    aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
+      STAGES.map((st, k) => { const ok = k <= S.adv, e = enemyStats(k);
+        return '<button class="b s" id="st' + (k + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + (k + 1) + (k < S.adv ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
+          '<br><span class="dim">敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
+      '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
+  }
+
+  let B = null;
+  const calc = (a, d) => Math.max(1, Math.round(a * a / (a + d) * (.9 + Math.random() * .2)));
+  const sl = ms => new Promise(r => setTimeout(r, ms));
+  const alive = arr => arr.filter(x => x.hp > 0);
+  function say(t){ B.log.push(t); if (B.log.length > 6) B.log.shift(); }
+  function startBattle(n){
+    const st = STAGES[n - 1], es = enemyStats(n - 1);
+    B = {n, idx:-1, tg:0, phase:"cmd", turn:1, log:["戦闘開始！"],
+      party:S.party.map(i => ({id:i, hp:stat(i, "hp"), max:stat(i, "hp"), atk:stat(i, "atk"), def:stat(i, "def"), mnd:stat(i, "mnd"), g:false, cd:0})),
+      en:Array.from({length:st.e}, (_, k) => { const d = st.boss ? ["✹","SYSTEM OVERLORD","#ff3b5c"] : ENEMY[((n - 1) * 2 + k) % 5]; return {sym:d[0], name:d[1], col:d[2], hp:es.hp, max:es.hp, atk:es.atk, def:es.def}; })};
+    nextActor();
+  }
+  function nextActor(){
+    B.idx++; while (B.idx < 4 && B.party[B.idx].hp <= 0) B.idx++;
+    if (B.idx >= 4) return enemyPhase();
+    const a = B.party[B.idx]; a.g = false; if (a.cd > 0) a.cd--;
+    if (!B.en[B.tg] || B.en[B.tg].hp <= 0) B.tg = B.en.findIndex(e => e.hp > 0);
+    bRender();
+  }
+  function cmd(c){
+    if (!B || B.phase !== "cmd") return;
+    const a = B.party[B.idx], nm = CH[a.id][0];
+    if (c === "a"){ const t = B.en[B.tg], d = calc(a.atk, t.def); t.hp = Math.max(0, t.hp - d); say(nm + "の攻撃！ " + t.name + "に" + d + "ダメージ"); }
+    else if (c === "s"){
+      if (a.cd > 0) return;
+      if (skillOf(a.id) === "heal"){ const h = Math.round(a.mnd * 1.5); alive(B.party).forEach(p => { p.hp = Math.min(p.max, p.hp + h); }); say(nm + "の全体回復！ 味方のHPが" + h + "回復"); }
+      else { let tot = 0; alive(B.en).forEach(e => { const d = calc(a.mnd * 1.2, e.def * .5); e.hp = Math.max(0, e.hp - d); tot += d; }); say(nm + "の精神波！ 敵全体に合計" + tot + "ダメージ"); }
+      a.cd = 3;
+    } else { a.g = true; say(nm + "は身を守っている"); }
+    if (!alive(B.en).length) return endBattle(true);
+    nextActor();
+  }
+  async function enemyPhase(){
+    B.phase = "enemy"; bRender();
+    for (const e of alive(B.en)){
+      await sl(650); if (!B) return;
+      const ps = alive(B.party), t = ps[Math.floor(Math.random() * ps.length)];
+      let d = calc(e.atk, t.def); if (t.g) d = Math.max(1, Math.round(d * .4));
+      t.hp = Math.max(0, t.hp - d); say(e.name + "の攻撃！ " + CH[t.id][0] + "に" + d + "ダメージ" + (t.g ? "（防御）" : "") + (t.hp <= 0 ? " 倒れた…" : ""));
+      bRender();
+      if (!alive(B.party).length){ await sl(500); return endBattle(false); }
+    }
+    await sl(500); if (!B) return;
+    B.phase = "cmd"; B.turn++; B.idx = -1; nextActor();
+  }
+  function endBattle(win){
+    B.phase = win ? "win" : "lose";
+    if (win){ B.first = B.n > S.adv; B.rw = (B.first ? 400 : 100) * B.n; if (B.first) S.adv = B.n; S.pt += B.rw; save(); }
+    bRender();
+  }
+  function bRender(){
+    const a = B.party[B.idx];
+    let h = '<div class="dim">STAGE ' + B.n + '　' + STAGES[B.n - 1].n + '　TURN ' + B.turn + '</div>' +
+      '<div class="ens">' + B.en.map((e, k) => '<div class="en' + (e.hp <= 0 ? " dead" : k === B.tg ? " tg" : "") + '" data-e="' + k + '" style="color:' + e.col + '"><div class="sy">' + e.sym + '</div>' + e.name + bar(e.hp, e.max, e.col) + '<div class="dim">' + e.hp + '</div></div>').join("") + '</div>' +
+      '<div class="log">' + B.log.join("<br>") + '</div>' +
+      '<div class="pcs">' + B.party.map((p, k) => '<div class="pc' + (p.hp <= 0 ? " dead" : k === B.idx && B.phase === "cmd" ? " cur" : "") + '" style="border-color:' + RC[CH[p.id][1]] + ';color:' + RC[CH[p.id][1]] + '"><div class="im"><span>' + (p.id + 1) + '</span><img src="' + imgOf(p.id) + '" onerror="this.remove()"></div><div class="nm">' + CH[p.id][0] + '</div>' + bar(p.hp, p.max) + '<div class="dim">' + p.hp + (p.g ? " 防" : "") + '</div></div>').join("") + '</div>';
+    if (B.phase === "cmd") h += '<div class="dim" style="color:#f5ff3b">▶ ' + CH[a.id][0] + '　スキル：' + (skillOf(a.id) === "heal" ? "全体回復" : "全体攻撃") + '　（敵をタップで対象変更）</div>' +
+      '<div class="cmd"><button class="b" id="ca">攻撃</button><button class="b" id="cs"' + (a.cd > 0 ? " disabled" : "") + '>スキル' + (a.cd > 0 ? "(" + a.cd + ")" : "") + '</button><button class="b" id="cg">防御</button></div>';
+    else if (B.phase === "enemy") h += '<div class="dim">敵のターン…</div>';
+    else if (B.phase === "win") h += '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + '</div><button class="b" id="ast">ステージ選択へ</button>';
+    else h += '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>';
+    aView(h, true);
+  }
+  function advClick(e){
+    const ta = e.target.closest("[data-a]");
+    if (ta){ const i = +ta.dataset.a, k = S.party.indexOf(i); if (k >= 0) S.party.splice(k, 1); else if (S.party.length < 4) S.party.push(i); save(); advParty(); return true; }
+    const te = e.target.closest("[data-e]");
+    if (te){ const k = +te.dataset.e; if (B && B.phase === "cmd" && B.en[k].hp > 0){ B.tg = k; bRender(); } return true; }
+    const id = e.target.id;
+    if (id === "badv"){ B = null; advStage(); return true; }
+    if (id === "apt"){ B = null; advParty(); return true; }
+    if (id === "ast"){ B = null; advStage(); return true; }
+    if (/^st\d+$/.test(id)){ const n = +id.slice(2); if (n <= S.adv + 1) startBattle(n); return true; }
+    if (id === "retry"){ startBattle(B.n); return true; }
+    if (id === "ca" || id === "cs" || id === "cg"){ cmd(id[1]); return true; }
+    return false;
+  }
+
   // ===== ホームに追加／共有 =====
   let DP = null;
   window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); DP = e; });

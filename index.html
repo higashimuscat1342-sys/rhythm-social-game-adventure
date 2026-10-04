@@ -101,6 +101,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .pc.dead{opacity:.25}.pc.cur{outline:2px solid #f5ff3b;box-shadow:0 0 12px #f5ff3b}.pc .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log{width:100%;min-height:96px;background:rgba(0,0,0,.6);border:1px solid #2a5566;padding:8px;text-align:left;font-size:12px;line-height:1.6}
 .cmd{display:flex;gap:8px;width:100%}.cmd .b{font-size:15px;padding:14px 4px;letter-spacing:.04em}
+.en.hit,.pc.hit{animation:sh .2s}
+.log{height:112px;overflow:hidden}
 </style>
 </head>
 <body>
@@ -172,7 +174,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   markLevel();
   lvBox.addEventListener("click", e => { const l = e.target.dataset && e.target.dataset.l; if (l){ setLevel(l); notes = []; layout(); markLevel(); } });
 
-  let state = "idle";
+  let state = "idle"; let EV = null;
   let hp = 0, score = 0, combo = 0, maxCombo = 0, resolved = 0, spawned = 0, cnt = {p:0, g:0, m:0};
   let notes = [], startT = 0, lastLane = -1, sameRun = 0, nextT = 0;
   const flashes = [];
@@ -204,7 +206,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     cnt = {p:0, g:0, m:0}; lastLane = -1; sameRun = 0; GOAL = BASE_GOAL; nextT = T0;
     judge = {text:"", color:"#fff", at:0};
     try { bgm.pause(); bgm.src = pickBgm(); bgm.currentTime = 0; bgm.play().catch(() => {}); } catch(e){}   // タップ操作内で再生
-    ov.hidden = true; ov.style.background = ""; title.className = ""; fw.length = 0;
+    ov.hidden = true; ov.style.background = ""; title.className = ""; fw.length = 0; if (EV) EV.hp = EV.max;
     startT = performance.now();
     state = "play";
   }
@@ -212,6 +214,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   function finish(cleared){
     state = "over";
     try { bgm.pause(); } catch(e){}
+    if (EV) return evFinish(cleared && EV.hp <= 0);
     const fcb = cleared && cnt.m === 0;
     title.textContent = fcb ? "FULL COMBO!" : cleared ? "CLEAR" : "GAME OVER";
     title.className = fcb ? "tfc" : cleared ? "tcl" : "";
@@ -276,6 +279,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       const perfect = bd <= PERFECT;
       perfect ? cnt.p++ : cnt.g++;
       setJudge(perfect ? "PERFECT" : "GOOD", perfect ? "#f5ff3b" : "#00f0ff");
+      if (EV){ EV.hp = Math.max(0, EV.hp - (perfect ? EV.dp : EV.dg)); if (EV.hp <= 0) return finish(true); }
     } else if (best && bd <= NEAR){
       notes.splice(notes.indexOf(best), 1);
       hurt("MISS", true);
@@ -389,6 +393,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     ctx.fillText(score + " / " + GOAL, fx + fieldW - 10, hy + 12);
     ctx.textAlign = "left"; ctx.fillStyle = "#7fb4c6"; ctx.font = "700 12px " + FONT;
     ctx.fillText(LEVELS[level].name, fx + 10, hy + 36);
+    if (EV){ const bx = fx + 10, bw2 = fieldW - 20, by = hy + 44; ctx.fillStyle = "rgba(255,59,92,.2)"; ctx.fillRect(bx, by, bw2, 8); ctx.fillStyle = "#ff3b5c"; ctx.fillRect(bx, by, bw2 * EV.hp / EV.max, 8);
+      ctx.textAlign = "right"; ctx.fillStyle = "#ff8aa0"; ctx.font = "700 11px " + FONT; ctx.fillText("BOSS " + Math.ceil(EV.hp), fx + fieldW - 10, hy + 36); }
 
     // 判定表示
     const a = 1 - (pn - judge.at) / 650;
@@ -614,7 +620,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     fx.hidden = true; fx.style.transform = ""; FX.mode = "";
   }
   function show(v, res){
-    if (v !== "data") rsConfirm = false; hm.hidden = false; hm.scrollTop = 0; hm.className = "scr" + (v === "menu" ? " bg" : "");
+    menuBgm(v === "col"); battleBgm(false); if (v !== "data") rsConfirm = false; hm.hidden = false; hm.scrollTop = 0; hm.className = "scr" + (v === "menu" ? " bg" : "");
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
@@ -637,7 +643,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function openPlay(){
     hm.hidden = true; state = "idle";
-    title.textContent = "OVERCLOCKED"; title.className = ""; ov.style.background = ""; sub.innerHTML = SUB0; startBtn.textContent = "START"; lvBox.hidden = false; ov.hidden = false;
+    title.textContent = "OVERCLOCKED"; title.className = ""; ov.style.background = ""; sub.innerHTML = SUB0; EV = null; $("toHome").textContent = "HOME"; markLevel(); menuBgm(false); startBtn.textContent = "START"; lvBox.hidden = false; ov.hidden = false;
   }
   hm.addEventListener("click", e => { if (advClick(e)) return; const z = e.target.closest(".zoomable"); if (z){ zoom(+z.dataset.i); return; } const id = e.target.id;
     if (id === "bp") openPlay(); else if (id === "bg") show("gacha"); else if (id === "bc") show("col");
@@ -649,7 +655,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
     else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], adv:0}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
-  $("toHome").addEventListener("click", () => { ov.hidden = true; show("menu"); });
+  $("toHome").addEventListener("click", () => { ov.hidden = true; if (EV){ EV = null; advStage(); } else show("menu"); });
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
   // 初期値（体力は他の10倍）と、強化1回あたりの伸び率（初期値×この割合が加算）。高レアほど初期値も伸びも大きく、強化回数は少ない
@@ -705,8 +711,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // ===== ADVENTURE（簡易コマンドバトル）=====
   const ADV_UNLOCK = 20;   // コレクションの種類数がこの数以上になると、メニューに出現
   const STAGES = [   // p＝敵の強さ
-    {n:"電脳の入口", p:1, e:2}, {n:"ノイズの森", p:1.8, e:2}, {n:"ジャンク街", p:3.2, e:3}, {n:"回路の谷", p:5.5, e:3},
-    {n:"ビット要塞", p:9, e:3}, {n:"オーバークロック塔", p:15, e:3}, {n:"深層ネットワーク", p:25, e:3}, {n:"システム中枢", p:42, e:1, boss:1}
+    {n:"電脳の入口", p:1, e:2}, {n:"ノイズの森", p:1.8, e:2}, {n:"ジャンク街", p:3.2, e:3, ev:"normal"}, {n:"回路の谷", p:5.5, e:3},
+    {n:"ビット要塞", p:9, e:3}, {n:"オーバークロック塔", p:15, e:3, ev:"hard"}, {n:"深層ネットワーク", p:25, e:3}, {n:"システム中枢", p:42, e:1, boss:1, ev:"veryhard"}
   ];
   const ENEMY = [["▲","ノイズ・ゴースト","#00f0ff"], ["◆","グリッチ・スライム","#ff2bd6"], ["●","バグ・オーブ","#f5ff3b"], ["■","ジャンク・ゴーレム","#39ff88"], ["✚","ウイルス・コア","#9d6bff"]];   // 記号は後で画像に差し替え予定
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
@@ -718,6 +724,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   function enemyStats(k){ const st = STAGES[k], b = st.boss ? 1 : 0; return {hp:Math.round(110 * st.p * (b ? 4 : 1)), atk:Math.round(11 * st.p * (b ? 1.5 : 1)), def:Math.round(5 * st.p * (b ? 1.5 : 1))}; }
 
   function advParty(){
+    menuBgm(true); battleBgm(false);
     const P = S.party;
     aView('<div id="t2" style="font-size:26px">PARTY</div><div class="dim">4人選んでください（' + P.length + '/4）。ステータスを見て編成しましょう</div>' +
       '<div class="slots">' + [0, 1, 2, 3].map(k => P[k] != null ? '<div class="slot" style="border:1px solid ' + RC[CH[P[k]][1]] + ';color:' + RC[CH[P[k]][1]] + '">' + CH[P[k]][0] + '</div>' : '<div class="slot">＋</div>').join("") + '</div>' +
@@ -727,91 +734,128 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       '</div><button class="b s" id="bk">← HOME</button>', true);
   }
   function advStage(){
+    menuBgm(true); battleBgm(false);
     S.party = S.party.filter(i => S.inv[i]);
     if (S.party.length < 4) return advParty();
     const sum = k => S.party.reduce((a, i) => a + stat(i, k), 0);
     aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
       STAGES.map((st, k) => { const ok = k <= S.adv, e = enemyStats(k);
         return '<button class="b s" id="st' + (k + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + (k + 1) + (k < S.adv ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
-          '<br><span class="dim">敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
+          '<br><span class="dim">' + (st.ev ? '♪ 音ゲーイベント（' + LEVELS[st.ev].name + '）　BOSS HP ' + Math.round(LEVELS[st.ev].goal * st.p * EV_K) : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
       '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
 
+  const TICK = 200, WAVES = 6, AUTO_HP = .6, EV_K = 12;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率／イベント(音ゲー)のボスHP係数
+  const BATTLE_BGM = ["battle1.mp3", "battle2.mp3", "battle3.mp3"];
+  const mBgm = new Audio("bgm1.mp3"), bBgm = new Audio();
+  mBgm.loop = bBgm.loop = true; mBgm.volume = .7; bBgm.volume = .8;
+  function menuBgm(on){ try { if (on){ if (mBgm.paused) mBgm.play().catch(() => {}); } else mBgm.pause(); } catch(e){} }
+  function battleBgm(on){ try { if (on){ bBgm.src = BATTLE_BGM[Math.floor(Math.random() * 3)]; bBgm.currentTime = 0; bBgm.play().catch(() => {}); } else bBgm.pause(); } catch(e){} }
+
+  // 効果音（軽量）
+  function blip(f1, f2, d, ty, v){ const a = ac(), t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type = ty; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(g); g.connect(MG); o.start(t); o.stop(t + d); }
+  const fx2 = f => { if (SFX) try { f(); } catch(e){} };
+  const sfxSel = () => fx2(() => { blip(660, 990, .08, "square", .1); blip(990, 1320, .09, "triangle", .08); });
+  const sfxAtk = () => fx2(() => { blip(900, 200, .09, "sawtooth", .08); noise(0, .07, 6000, 2000, .12); });
+  const sfxHurt = () => fx2(() => { blip(180, 60, .12, "square", .13); noise(0, .1, 1200, 300, .18); });
+  const sfxSkill = () => fx2(() => { [76, 83, 88].forEach((m, k) => note(m, k * .04, .3, "triangle", .1, 6000, .5)); noise(0, .25, 3000, 9000, .15, true); });
+  const sfxKill = () => fx2(() => blip(500, 1200, .1, "triangle", .1));
+  const sfxLose = () => fx2(() => { [220, 165, 110].forEach((f, k) => setTimeout(() => blip(f, f * .8, .3, "sawtooth", .12), k * 180)); });
+
   let B = null;
   const calc = (a, d) => Math.max(1, Math.round(a * a / (a + d) * (.9 + Math.random() * .2)));
-  const sl = ms => new Promise(r => setTimeout(r, ms));
   const alive = arr => arr.filter(x => x.hp > 0);
-  function say(t){ B.log.push(t); if (B.log.length > 6) B.log.shift(); }
+  function say(t){ B.log.push(t); if (B.log.length > 5) B.log.shift(); }
+  function stopBattle(){ if (B && B.timer) clearInterval(B.timer); B = null; battleBgm(false); }
   function startBattle(n){
-    const st = STAGES[n - 1], es = enemyStats(n - 1);
-    B = {n, idx:-1, tg:0, phase:"cmd", turn:1, log:["戦闘開始！"],
-      party:S.party.map(i => ({id:i, hp:stat(i, "hp"), max:stat(i, "hp"), atk:stat(i, "atk"), def:stat(i, "def"), mnd:stat(i, "mnd"), g:false, cd:0})),
-      en:Array.from({length:st.e}, (_, k) => { const d = st.boss ? ["✹","SYSTEM OVERLORD","#ff3b5c"] : ENEMY[((n - 1) * 2 + k) % 5]; return {sym:d[0], name:d[1], col:d[2], hp:es.hp, max:es.hp, atk:es.atk, def:es.def}; })};
-    nextActor();
+    stopBattle();
+    B = {n, t:0, kills:0, wave:0, log:[], over:false, fs:"",
+      party:S.party.map(i => ({id:i, hp:stat(i, "hp"), max:stat(i, "hp"), atk:stat(i, "atk"), def:stat(i, "def"), mnd:stat(i, "mnd"), cd:2}))};
+    menuBgm(false); battleBgm(true);
+    spawnWave(); bBuild(); B.timer = setInterval(tick, TICK);
   }
-  function nextActor(){
-    B.idx++; while (B.idx < 4 && B.party[B.idx].hp <= 0) B.idx++;
-    if (B.idx >= 4) return enemyPhase();
-    const a = B.party[B.idx]; a.g = false; if (a.cd > 0) a.cd--;
-    if (!B.en[B.tg] || B.en[B.tg].hp <= 0) B.tg = B.en.findIndex(e => e.hp > 0);
-    bRender();
+  function spawnWave(){
+    const st = STAGES[B.n - 1], es = enemyStats(B.n - 1); B.wave++;
+    B.en = Array.from({length:st.e}, (_, k) => { const d = ENEMY[((B.n - 1) * 2 + B.wave + k) % 5], hp = Math.round(es.hp * AUTO_HP); return {sym:d[0], name:d[1], col:d[2], hp, max:hp, atk:es.atk, def:es.def}; });
+    if (B.wave > 1) alive(B.party).forEach(p => { p.hp = Math.min(p.max, p.hp + Math.round(p.max * .1)); });
+    say("WAVE " + B.wave + "／" + WAVES + " 出現！");
   }
-  function cmd(c){
-    if (!B || B.phase !== "cmd") return;
-    const a = B.party[B.idx], nm = CH[a.id][0];
-    if (c === "a"){ const t = B.en[B.tg], d = calc(a.atk, t.def); t.hp = Math.max(0, t.hp - d); say(nm + "の攻撃！ " + t.name + "に" + d + "ダメージ"); }
-    else if (c === "s"){
-      if (a.cd > 0) return;
-      if (skillOf(a.id) === "heal"){ const h = Math.round(a.mnd * 1.5); alive(B.party).forEach(p => { p.hp = Math.min(p.max, p.hp + h); }); say(nm + "の全体回復！ 味方のHPが" + h + "回復"); }
-      else { let tot = 0; alive(B.en).forEach(e => { const d = calc(a.mnd * 1.2, e.def * .5); e.hp = Math.max(0, e.hp - d); tot += d; }); say(nm + "の精神波！ 敵全体に合計" + tot + "ダメージ"); }
-      a.cd = 3;
-    } else { a.g = true; say(nm + "は身を守っている"); }
-    if (!alive(B.en).length) return endBattle(true);
-    nextActor();
-  }
-  async function enemyPhase(){
-    B.phase = "enemy"; bRender();
-    for (const e of alive(B.en)){
-      await sl(650); if (!B) return;
-      const ps = alive(B.party), t = ps[Math.floor(Math.random() * ps.length)];
-      let d = calc(e.atk, t.def); if (t.g) d = Math.max(1, Math.round(d * .4));
-      t.hp = Math.max(0, t.hp - d); say(e.name + "の攻撃！ " + CH[t.id][0] + "に" + d + "ダメージ" + (t.g ? "（防御）" : "") + (t.hp <= 0 ? " 倒れた…" : ""));
-      bRender();
-      if (!alive(B.party).length){ await sl(500); return endBattle(false); }
+  function reap(){ B.en.forEach(e => { if (e.hp <= 0 && !e.dead){ e.dead = true; B.kills++; say(e.name + " 撃破！"); sfxKill(); } }); }
+  function hitFx(k){ const el = $("pc" + k); if (el){ el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit"); } }
+  function tick(){
+    if (!B || B.over) return;
+    const r = B.t++ % 4, p = B.party[r], nm = CH[p.id][0];
+    if (p.hp > 0 && alive(B.en).length){
+      const t = alive(B.en)[0];
+      if (p.cd <= 0){
+        p.cd = 3;
+        if (skillOf(p.id) === "heal"){ const h = Math.round(p.mnd * 1.5); alive(B.party).forEach(x => { x.hp = Math.min(x.max, x.hp + h); }); say(nm + "の全体回復！ +" + h); }
+        else { let tot = 0; alive(B.en).forEach(e => { const d = calc(p.mnd * 1.2, e.def * .5); e.hp = Math.max(0, e.hp - d); e.hit = 1; tot += d; }); say(nm + "の精神波！ 全体に" + tot); }
+        sfxSkill();
+      } else { p.cd--; const d = calc(p.atk, t.def); t.hp = Math.max(0, t.hp - d); t.hit = 1; say(nm + "の攻撃！ " + d); sfxAtk(); }
+      reap();
     }
-    await sl(500); if (!B) return;
-    B.phase = "cmd"; B.turn++; B.idx = -1; nextActor();
+    if (!alive(B.en).length){ if (B.wave >= WAVES) return endBattle(true); spawnWave(); }
+    else {
+      const es = alive(B.en);
+      if (r < es.length){
+        const ps = alive(B.party), t = ps[Math.floor(Math.random() * ps.length)], d = calc(es[r].atk, t.def);
+        t.hp = Math.max(0, t.hp - d); say(es[r].name + "の攻撃！ " + CH[t.id][0] + " -" + d + (t.hp <= 0 ? " 倒れた…" : "")); sfxHurt(); hitFx(B.party.indexOf(t));
+        if (!alive(B.party).length) return endBattle(false);
+      }
+    }
+    bUpdate();
   }
   function endBattle(win){
-    B.phase = win ? "win" : "lose";
-    if (win){ B.first = B.n > S.adv; B.rw = (B.first ? 400 : 100) * B.n; if (B.first) S.adv = B.n; S.pt += B.rw; save(); }
-    bRender();
+    B.over = true; B.win = win; clearInterval(B.timer); battleBgm(false);
+    if (win){ B.first = B.n > S.adv; B.rw = (B.first ? 400 : 100) * B.n; if (B.first) S.adv = B.n; S.pt += B.rw; save(); sfxClear(); } else sfxLose();
+    bUpdate();
   }
-  function bRender(){
-    const a = B.party[B.idx];
-    let h = '<div class="dim">STAGE ' + B.n + '　' + STAGES[B.n - 1].n + '　TURN ' + B.turn + '</div>' +
-      '<div class="ens">' + B.en.map((e, k) => '<div class="en' + (e.hp <= 0 ? " dead" : k === B.tg ? " tg" : "") + '" data-e="' + k + '" style="color:' + e.col + '"><div class="sy">' + e.sym + '</div>' + e.name + bar(e.hp, e.max, e.col) + '<div class="dim">' + e.hp + '</div></div>').join("") + '</div>' +
-      '<div class="log">' + B.log.join("<br>") + '</div>' +
-      '<div class="pcs">' + B.party.map((p, k) => '<div class="pc' + (p.hp <= 0 ? " dead" : k === B.idx && B.phase === "cmd" ? " cur" : "") + '" style="border-color:' + RC[CH[p.id][1]] + ';color:' + RC[CH[p.id][1]] + '"><div class="im"><span>' + (p.id + 1) + '</span><img src="' + imgOf(p.id) + '" onerror="this.remove()"></div><div class="nm">' + CH[p.id][0] + '</div>' + bar(p.hp, p.max) + '<div class="dim">' + p.hp + (p.g ? " 防" : "") + '</div></div>').join("") + '</div>';
-    if (B.phase === "cmd") h += '<div class="dim" style="color:#f5ff3b">▶ ' + CH[a.id][0] + '　スキル：' + (skillOf(a.id) === "heal" ? "全体回復" : "全体攻撃") + '　（敵をタップで対象変更）</div>' +
-      '<div class="cmd"><button class="b" id="ca">攻撃</button><button class="b" id="cs"' + (a.cd > 0 ? " disabled" : "") + '>スキル' + (a.cd > 0 ? "(" + a.cd + ")" : "") + '</button><button class="b" id="cg">防御</button></div>';
-    else if (B.phase === "enemy") h += '<div class="dim">敵のターン…</div>';
-    else if (B.phase === "win") h += '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + '</div><button class="b" id="ast">ステージ選択へ</button>';
-    else h += '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>';
-    aView(h, true);
+  function bBuild(){
+    aView('<div class="dim" id="bhead"></div><div class="ens" id="bens"></div><div class="log" id="blog"></div><div class="pcs">' +
+      B.party.map((p, k) => '<div class="pc" id="pc' + k + '" style="border-color:' + RC[CH[p.id][1]] + ';color:' + RC[CH[p.id][1]] + '"><div class="im"><span>' + (p.id + 1) + '</span><img src="' + imgOf(p.id) + '" onerror="this.remove()"></div><div class="nm">' + CH[p.id][0] + '</div><div class="hb"><i id="pb' + k + '"></i></div><div class="dim" id="pt' + k + '"></div></div>').join("") +
+      '</div><div id="bfoot" style="width:100%;display:flex;flex-direction:column;gap:10px;align-items:center"></div>');
+    bUpdate();
   }
+  function bUpdate(){
+    $("bhead").textContent = "STAGE " + B.n + "　" + STAGES[B.n - 1].n + "　WAVE " + B.wave + "/" + WAVES + "　撃破 " + B.kills;
+    $("bens").innerHTML = B.en.map(e => '<div class="en' + (e.hp <= 0 ? " dead" : e.hit ? " hit" : "") + '" style="color:' + e.col + '"><div class="sy">' + e.sym + '</div>' + e.name + bar(e.hp, e.max, e.col) + '</div>').join("");
+    B.en.forEach(e => { e.hit = 0; });
+    $("blog").innerHTML = B.log.join("<br>");
+    B.party.forEach((p, k) => { $("pc" + k).classList.toggle("dead", p.hp <= 0); $("pb" + k).style.width = p.hp / p.max * 100 + "%"; $("pt" + k).textContent = p.hp; });
+    const fs = B.over ? (B.win ? "w" : "l") : "r";
+    if (fs !== B.fs){ B.fs = fs;
+      $("bfoot").innerHTML = fs === "r" ? '<button class="b s" id="ast">撤退する</button>'
+        : fs === "w" ? '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">撃破 ' + B.kills + '　+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + '</div><button class="b" id="ast">ステージ選択へ</button>'
+        : '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>'; }
+  }
+
+  // 音ゲーイベントバトル：判定成功ごとにパーティの攻撃力でボスにダメージ
+  function startEvent(n){
+    const st = STAGES[n - 1], sum = S.party.reduce((a, i) => a + stat(i, "atk"), 0), max = Math.round(LEVELS[st.ev].goal * st.p * EV_K);
+    stopBattle(); menuBgm(false);
+    setLevel(st.ev); notes = []; layout();
+    EV = {n, max, hp:max, dp:Math.round(sum * .5), dg:Math.round(sum * .4)};
+    hm.hidden = true; begin();
+  }
+  function evFinish(win){
+    const first = win && EV.n > S.adv, rw = win ? (first ? 1000 : 300) * EV.n : 0;
+    if (win){ if (first) S.adv = EV.n; S.pt += rw; save(); }
+    title.textContent = win ? "VICTORY" : "DEFEAT"; title.className = win ? "tcl" : "";
+    sub.innerHTML = "BOSS HP " + Math.max(0, Math.ceil(EV.hp)) + " / " + EV.max + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
+      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") : "<br>パーティを強化して再挑戦しよう");
+    startBtn.textContent = "RETRY"; lvBox.hidden = true; $("toHome").textContent = "ステージ選択へ"; ov.hidden = false;
+    if (win){ ov.style.background = "rgba(4,6,14,.5)"; celebrate(false); sfxClear(); } else sfxLose();
+  }
+
   function advClick(e){
     const ta = e.target.closest("[data-a]");
-    if (ta){ const i = +ta.dataset.a, k = S.party.indexOf(i); if (k >= 0) S.party.splice(k, 1); else if (S.party.length < 4) S.party.push(i); save(); advParty(); return true; }
-    const te = e.target.closest("[data-e]");
-    if (te){ const k = +te.dataset.e; if (B && B.phase === "cmd" && B.en[k].hp > 0){ B.tg = k; bRender(); } return true; }
+    if (ta){ const i = +ta.dataset.a, k = S.party.indexOf(i); if (k >= 0) S.party.splice(k, 1); else if (S.party.length < 4) S.party.push(i); save(); sfxSel(); advParty(); return true; }
     const id = e.target.id;
-    if (id === "badv"){ B = null; advStage(); return true; }
-    if (id === "apt"){ B = null; advParty(); return true; }
-    if (id === "ast"){ B = null; advStage(); return true; }
-    if (/^st\d+$/.test(id)){ const n = +id.slice(2); if (n <= S.adv + 1) startBattle(n); return true; }
+    if (id === "badv" || id === "ast"){ stopBattle(); advStage(); return true; }
+    if (id === "apt"){ stopBattle(); advParty(); return true; }
+    if (/^st\d+$/.test(id)){ const n = +id.slice(2); if (n <= S.adv + 1) STAGES[n - 1].ev ? startEvent(n) : startBattle(n); return true; }
     if (id === "retry"){ startBattle(B.n); return true; }
-    if (id === "ca" || id === "cs" || id === "cg"){ cmd(id[1]); return true; }
     return false;
   }
 

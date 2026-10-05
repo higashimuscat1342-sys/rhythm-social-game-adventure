@@ -94,7 +94,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .atile i{position:absolute;top:2px;right:5px;font-style:normal;font-size:15px;color:#f5ff3b;font-weight:900;text-shadow:0 0 4px #000;z-index:2}
 .slots{display:flex;gap:6px;width:100%}.slot{flex:1;height:46px;border:1px dashed #2a5566;display:flex;align-items:center;justify-content:center;color:#2a5566;font-size:11px;padding:2px;line-height:1.2}
 .ens{display:flex;gap:8px;justify-content:center;width:100%}
-.en{flex:1;max-width:150px;text-align:center;border:1px solid transparent;padding:6px 2px;font-size:11px;cursor:pointer}
+.en{flex:1;max-width:130px;text-align:center;border:1px solid transparent;padding:6px 2px;font-size:11px;cursor:pointer}
 .en.tg{border-color:#ff2bd6;box-shadow:0 0 12px #ff2bd6}.en.dead{opacity:.18}.en .sy{font-size:50px;line-height:1.1}
 .hb{height:6px;background:rgba(255,255,255,.12);margin-top:3px}.hb i{display:block;height:100%;background:#39ff88}
 .pcs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%}
@@ -102,6 +102,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .log{width:100%;min-height:96px;background:rgba(0,0,0,.6);border:1px solid #2a5566;padding:8px;text-align:left;font-size:12px;line-height:1.6}
 .cmd{display:flex;gap:8px;width:100%}.cmd .b{font-size:15px;padding:14px 4px;letter-spacing:.04em}
 .en.hit,.pc.hit{animation:sh .2s}
+.en .mi{aspect-ratio:1/1;position:relative;background:#0a1428;overflow:hidden;margin-bottom:4px;border:1px solid currentColor}
+.en .mi span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;opacity:.4}
+.en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
 </style>
 </head>
@@ -434,7 +437,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   // ===== メイン／ガチャ =====
   const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c);   // 章の数
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build4";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build5";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -450,10 +453,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   SHOW.forEach((k, r) => { NUM[k] = r + 1; CH[k][0] = CN[r + 1] || "No." + String(r + 1).padStart(3, "0"); });
   const MAXE = {N:99, R:70, SR:50, SSR:30, UL:5};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
-  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0)};
+  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0)};
   let _sv = {}; try { _sv = JSON.parse(localStorage.getItem(SK) || "{}") || {}; Object.assign(S, _sv); } catch(e){}
   if (!Array.isArray(_sv.cl)) S.cl = CHI.map(c => Math.max(0, Math.min(10, (_sv.adv | 0) - c * 10)));   // 旧セーブ(全章通しの進行)を章別に変換
   S.cl = CHI.map(c => Math.max(0, Math.min(10, S.cl[c] | 0))); delete S.adv;
+  S.cb = CHI.map(c => Array.isArray(S.cb) && S.cb[c] ? 1 : 0);   // 章クリア特典の受け取り済みフラグ
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
@@ -683,12 +687,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     else if (id === "ld"){ const m = importCode($("im").value); m === "OK" ? show("menu") : show("data", m); }
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
-    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
+    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
   $("toHome").addEventListener("click", () => { ov.hidden = true; if (EV){ EV = null; advStage(); } else show("menu"); });
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
   // 初期値（体力は他の10倍）と、強化1回あたりの伸び率（初期値×この割合が加算）。高レアほど初期値も伸びも大きく、強化回数は少ない
-  const BASE = {N:{hp:115, atk:11.5, def:11.5, mnd:11.5}, R:{hp:230, atk:23, def:23, mnd:23}, SR:{hp:460, atk:46, def:46, mnd:46}, SSR:{hp:800, atk:80, def:80, mnd:80}, UL:{hp:8500, atk:850, def:850, mnd:850}};   // N/R/SRを約+15%、ULを約-15%
+  const BASE = {N:{hp:150, atk:15, def:15, mnd:15}, R:{hp:320, atk:32, def:32, mnd:32}, SR:{hp:650, atk:65, def:65, mnd:65}, SSR:{hp:1200, atk:120, def:120, mnd:120}, UL:{hp:8500, atk:850, def:850, mnd:850}};
   const GROW = {N:.03, R:.05, SR:.08, SSR:.15, UL:.1};
   const lvOf = i => S.lv[i] || 0, spare = i => (S.inv[i] || 0) - 1 - lvOf(i);   // 余剰＝所持数−1−強化済み回数
   function stat(i, k){   // 初期値×キャラ個体差(0.8〜1.2)×(1＋伸び率×強化回数)
@@ -735,13 +739,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   // ===== 引き継ぎコード =====
   const hs = t => { let h = 7; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0; return h.toString(36); };
-  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl})); return "OC1." + b + "." + hs(b); }
+  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl, cb:S.cb})); return "OC1." + b + "." + hs(b); }
   function importCode(c){
     try {
       const m = c.trim().split("."); if (m.length !== 3 || m[0] !== "OC1" || hs(m[1]) !== m[2]) return "コードが正しくありません";
       const d = JSON.parse(atob(m[1])), inv = {}, lv = {};
       for (let i = 0; i < CH.length; i++){ const n = Math.max(0, Math.min(999, (d.inv && d.inv[i]) | 0)); if (n){ inv[i] = n; lv[i] = Math.max(0, Math.min(maxE(i), n - 1, (d.lv && d.lv[i]) | 0)); } }
-      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
+      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, cb:(Array.isArray(d.cb) ? CHI.map(c => d.cb[c] ? 1 : 0) : CHI.map(() => 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
     } catch(e){ return "コードが正しくありません"; }
   }
   // ===== ADVENTURE（簡易コマンドバトル）=====
@@ -752,7 +756,27 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const EVLV = {3:"normal", 6:"hard", 10:"veryhard"};   // イベントバトルになるステージと、音ゲー難易度
   const STAGES = [];
   CHAPTERS.forEach((_, c) => P10.forEach((p, k) => STAGES.push({c:c + 1, s:k + 1, n:ST_NAMES[k], p:p * (1 + .15 * c), e:k < 2 ? 2 : 3, ev:EVLV[k + 1], boss:k === 9 ? 1 : 0})));
-  const ENEMY = [["▲","ノイズ・ゴースト","#00f0ff"], ["◆","グリッチ・スライム","#ff2bd6"], ["●","バグ・オーブ","#f5ff3b"], ["■","ジャンク・ゴーレム","#39ff88"], ["✚","ウイルス・コア","#9d6bff"]];   // 記号は後で画像に差し替え予定
+  // モンスター画像：monster01.jpg〜monster11.jpg（index.htmlと同じフォルダ・正方形）。画像が無い場合は記号で代用される
+  const MON_NAMES = ["ノイズ・ゴースト", "グリッチ・スライム", "バグ・オーブ", "ジャンク・ゴーレム", "ウイルス・コア", "クロック・ウォーデン", "サイファー・シェイド", "クォンタム・ビースト", "カーネル・ファントム", "オーバークロッカー", "システム・ロード"];   // 配列の順番＝monster01, 02, … 11
+  const MON_BOSS = 10;   // ボス（各章STAGE10）で先頭に出る敵＝monster11
+  const MON_SYM = ["▲", "◆", "●", "■", "✚"], MON_COL = ["#00f0ff", "#ff2bd6", "#f5ff3b", "#39ff88", "#9d6bff"];
+  const monImg = k => "monster" + String(k + 1).padStart(2, "0") + ".jpg";
+  const monPool = c => [c % 10, (c + 1) % 10];   // 第N章の通常敵：monster(N)とmonster(N+1)。第10章はmonster10とmonster01
+  MON_NAMES.forEach((_, k) => { new Image().src = monImg(k); });   // 先読み
+  // 章クリア特典：その章のSTAGE10をクリアすると、章選択画面で1回だけ受け取れる（PT＋レア確定1体）
+  const CB_PT = c => 3000 * (c + 1), CB_R = c => c < 5 ? "SR" : "SSR";
+  const cbText = c => CB_PT(c) + "PT ＋ " + CB_R(c) + "確定1体";
+  const cbBtn = c => S.cl[c] >= 10 && !S.cb[c] ? '<button class="b" id="cb' + c + '">🎁 第' + (c + 1) + '章クリア特典を受け取る</button>' : "";
+  const chNote = st => st.s === 10 && S.cl[st.c - 1] >= 10 && !S.cb[st.c - 1] ? '<br><b style="color:#f5ff3b">🎁 第' + st.c + '章クリア！特典は章選択から受け取れます</b>' : "";
+  function claimCh(c){
+    if (busy || S.cl[c] < 10 || S.cb[c]) return;
+    busy = true; S.cb[c] = 1;
+    const q = CB_R(c), pool = CH.map((_, i) => i).filter(i => CH[i][1] === q), i = pool[Math.floor(Math.random() * pool.length)], nw = !S.inv[i];
+    S.inv[i] = (S.inv[i] || 0) + 1; S.pt += CB_PT(c); save();
+    (async () => { try { await gfx([[i, nw]]); } catch(e){}
+      busy = false; advChapters();
+      msgBox('<b style="color:#f5ff3b">第' + (c + 1) + '章クリア特典</b><br>+' + CB_PT(c) + ' PT（所持 ' + S.pt + '）<br>' + q + '「' + CH[i][0] + '」を獲得' + (nw ? "（NEW）" : "（所持済み → 強化に使えます）")); })();
+  }
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
   const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
   const owned = () => SHOW.filter(i => S.inv[i]);
@@ -779,7 +803,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     S.party = S.party.filter(i => S.inv[i]); if (S.party.length < 4) return advParty();
     aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">好きな章から挑戦できます。各章はステージ1から順に進めます</div>' +
       CHAPTERS.map((nm, c) => { const done = S.cl[c];
-        return '<button class="b s" id="ch' + c + '" style="text-align:left;padding:14px;line-height:1.6">' + nm + '<br><span class="dim">クリア ' + done + ' / 10' + (done >= 10 ? " ★" : "") + '</span></button>'; }).join("") +
+        return '<button class="b s" id="ch' + c + '" style="text-align:left;padding:14px;line-height:1.6">' + nm + '<br><span class="dim">クリア ' + done + ' / 10' + (done >= 10 ? " ★" : "") + '</span><br><span class="dim" style="color:#f5ff3b">🎁 特典：' + cbText(c) + (S.cb[c] ? "（受取済）" : "") + '</span></button>' + cbBtn(c); }).join("") +
       '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
   function advStage(){
@@ -787,7 +811,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     S.party = S.party.filter(i => S.inv[i]);
     if (S.party.length < 4) return advParty();
     const sum = k => S.party.reduce((a, i) => a + stat(i, k), 0), c0 = CUR_CH * 10;
-    aView('<div id="t2" style="font-size:22px">' + CHAPTERS[CUR_CH] + '</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
+    aView('<div id="t2" style="font-size:22px">' + CHAPTERS[CUR_CH] + '</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' + cbBtn(CUR_CH) +
       STAGES.slice(c0, c0 + 10).map((st, k) => { const idx = c0 + k, ok = k <= S.cl[CUR_CH], e = enemyStats(idx);
         return '<button class="b s" id="st' + (idx + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + st.s + (k < S.cl[CUR_CH] ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
           '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　音ゲーをクリアで突破' : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
@@ -825,7 +849,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function spawnWave(){
     const st = STAGES[B.n - 1], es = enemyStats(B.n - 1); B.wave++;
-    B.en = Array.from({length:st.e}, (_, k) => { const d = ENEMY[((B.n - 1) * 2 + B.wave + k) % 5], hp = Math.round(es.hp * AUTO_HP); return {sym:d[0], name:d[1], col:d[2], hp, max:hp, atk:es.atk, def:es.def}; });
+    const pool = monPool(st.c - 1);
+    B.en = Array.from({length:st.e}, (_, k) => { const m = (st.boss && k === 0) ? MON_BOSS : pool[(B.wave + k) % 2], hp = Math.round(es.hp * AUTO_HP); return {m, sym:MON_SYM[m % 5], name:MON_NAMES[m], col:MON_COL[m % 5], hp, max:hp, atk:es.atk, def:es.def}; });
     if (B.wave > 1) alive(B.party).forEach(p => { p.hp = Math.min(p.max, p.hp + Math.round(p.max * .1)); });
     say("WAVE " + B.wave + "／" + WAVES + " 出現！");
   }
@@ -868,14 +893,18 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function bUpdate(){
     $("bhead").textContent = stLabel(B.n) + "　WAVE " + B.wave + "/" + WAVES + "　撃破 " + B.kills;
-    $("bens").innerHTML = B.en.map(e => '<div class="en' + (e.hp <= 0 ? " dead" : e.hit ? " hit" : "") + '" style="color:' + e.col + '"><div class="sy">' + e.sym + '</div>' + e.name + bar(e.hp, e.max, e.col) + '</div>').join("");
-    B.en.forEach(e => { e.hit = 0; });
+    const ek = B.n + ":" + B.wave;
+    if (B.ek !== ek){ B.ek = ek;
+      $("bens").innerHTML = B.en.map((e, k) => '<div class="en" id="en' + k + '" style="color:' + e.col + '"><div class="mi"><span>' + e.sym + '</span><img src="' + monImg(e.m) + '" onerror="this.remove()"></div>' + e.name + '<div class="hb"><i id="eb' + k + '" style="background:' + e.col + '"></i></div></div>').join(""); }
+    B.en.forEach((e, k) => { const el = $("en" + k); if (!el) return;
+      el.classList.toggle("dead", e.hp <= 0); $("eb" + k).style.width = Math.max(0, e.hp / e.max * 100) + "%";
+      if (e.hit){ el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit"); } e.hit = 0; });
     $("blog").innerHTML = B.log.join("<br>");
     B.party.forEach((p, k) => { $("pc" + k).classList.toggle("dead", p.hp <= 0); $("pb" + k).style.width = p.hp / p.max * 100 + "%"; $("pt" + k).textContent = p.hp; });
     const fs = B.over ? (B.win ? "w" : "l") : "r";
     if (fs !== B.fs){ B.fs = fs;
       $("bfoot").innerHTML = fs === "r" ? '<button class="b s" id="ast">撤退する</button>'
-        : fs === "w" ? '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">撃破 ' + B.kills + '　+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + '</div><button class="b" id="ast">ステージ選択へ</button>'
+        : fs === "w" ? '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">撃破 ' + B.kills + '　+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + chNote(STAGES[B.n - 1]) + '</div><button class="b" id="ast">ステージ選択へ</button>'
         : '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>'; }
   }
 
@@ -891,7 +920,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (win){ if (first) S.cl[est.c - 1] = est.s; S.pt += rw; save(); }
     title.textContent = win ? "VICTORY" : "DEFEAT"; title.className = win ? "tcl" : "";
     sub.innerHTML = "HIT " + score + " / " + GOAL + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
-      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") : "<br>もう一度挑戦しよう");
+      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") + chNote(est) : "<br>もう一度挑戦しよう");
     startBtn.textContent = "RETRY"; lvBox.hidden = true; $("toHome").textContent = "ステージ選択へ"; ov.hidden = false;
     if (win){ ov.style.background = "rgba(4,6,14,.5)"; celebrate(false); sfxClear(); } else sfxLose();
   }
@@ -903,6 +932,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (id === "badv"){ stopBattle(); S.party = S.party.filter(i => S.inv[i]); S.party.length < 4 ? advParty() : advChapters(); return true; }
     if (id === "ast"){ stopBattle(); advStage(); return true; }
     if (id === "achs"){ advChapters(); return true; }
+    if (/^cb\d$/.test(id)){ claimCh(+id[2]); return true; }
     if (/^ch\d$/.test(id)){ CUR_CH = +id[2]; advStage(); return true; }
     if (id === "apt"){ stopBattle(); advParty(); return true; }
     if (/^st\d+$/.test(id)){ const n = +id.slice(2); const st = STAGES[n - 1]; if (st.s <= S.cl[st.c - 1] + 1) st.ev ? startEvent(n) : startBattle(n); return true; }

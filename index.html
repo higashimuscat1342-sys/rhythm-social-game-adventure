@@ -135,7 +135,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const MAX_HP = 10;   // 全難易度共通
   const LEVELS = {
     easy:   {name:"EASY", keys:3, bpm:160, fall:1500, goal:150,  irr:[1],                                  chord:0},
-    normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:200, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
+    normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:300, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
     hard:   {name:"HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
     veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
   };
@@ -161,17 +161,18 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const BGM_HARD = ["music-h-01.mp3", "music-h-02.mp3", "music-h-03.mp3"];   // HARD / VERY HARD 専用（通常曲に加えて選ばれる）
   let lastBgm = "";
   function pickBgm(){
-    const pool = (level === "hard" || level === "veryhard") ? BGM_FILES.concat(BGM_HARD) : BGM_FILES;
+    const pool = EV ? BATTLE_BGM : (level === "hard" || level === "veryhard") ? BGM_FILES.concat(BGM_HARD) : BGM_FILES;   // イベントバトル中は battle1〜3.mp3
     let f;
     do { f = pool[Math.floor(Math.random() * pool.length)]; } while (f === lastBgm && pool.length > 1);
     lastBgm = f; return f;
   }
 
   const $ = id => document.getElementById(id);
-  const cv = $("cv"), ctx = cv.getContext("2d"), ov = $("overlay");
+  const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false, desynchronized:true}), ov = $("overlay");
   const title = $("title"), sub = $("sub"), startBtn = $("start"), lvBox = $("lv"), sa = $("sa");
   const markLevel = () => [...lvBox.children].forEach(b => b.classList.toggle("on", b.dataset.l === level));
   markLevel();
+  [...lvBox.children].forEach(b => { const q = LEVELS[b.dataset.l]; b.innerHTML = q.name + '<br><span style="font-size:11px;opacity:.8">GOAL ' + q.goal + '</span>'; });
   lvBox.addEventListener("click", e => { const l = e.target.dataset && e.target.dataset.l; if (l){ setLevel(l); notes = []; layout(); markLevel(); } });
 
   let state = "idle"; let EV = null;
@@ -206,7 +207,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     cnt = {p:0, g:0, m:0}; lastLane = -1; sameRun = 0; GOAL = BASE_GOAL; nextT = T0;
     judge = {text:"", color:"#fff", at:0};
     try { bgm.pause(); bgm.src = pickBgm(); bgm.currentTime = 0; bgm.play().catch(() => {}); } catch(e){}   // タップ操作内で再生
-    ov.hidden = true; ov.style.background = ""; title.className = ""; fw.length = 0; if (EV) EV.hp = EV.max;
+    ov.hidden = true; ov.style.background = ""; title.className = ""; fw.length = 0;
     startT = performance.now();
     state = "play";
   }
@@ -214,7 +215,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   function finish(cleared){
     state = "over";
     try { bgm.pause(); } catch(e){}
-    if (EV) return evFinish(cleared && EV.hp <= 0);
+    if (EV) return evFinish(cleared);
     const fcb = cleared && cnt.m === 0;
     title.textContent = fcb ? "FULL COMBO!" : cleared ? "CLEAR" : "GAME OVER";
     title.className = fcb ? "tfc" : cleared ? "tcl" : "";
@@ -279,7 +280,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       const perfect = bd <= PERFECT;
       perfect ? cnt.p++ : cnt.g++;
       setJudge(perfect ? "PERFECT" : "GOOD", perfect ? "#f5ff3b" : "#00f0ff");
-      if (EV){ EV.hp = Math.max(0, EV.hp - (perfect ? EV.dp : EV.dg)); if (EV.hp <= 0) return finish(true); }
     } else if (best && bd <= NEAR){
       notes.splice(notes.indexOf(best), 1);
       hurt("MISS", true);
@@ -376,9 +376,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       const p = 1 - (n.t - g) / FALL;
       const y = topY + (judgeY - topY) * p;
       const lw = laneW * .84, x = fx + n.lane * laneW + laneW * .08, c = USE[n.lane].color;
-      ctx.shadowColor = c; ctx.shadowBlur = 16;
+      ctx.globalAlpha = .28; ctx.fillStyle = c; ctx.fillRect(x - 3, y - nh / 2 - 3, lw + 6, nh + 6); ctx.globalAlpha = 1;   // 発光は軽い重ね描きで代用（shadowBlurは重い）
       ctx.fillStyle = c; ctx.fillRect(x, y - nh / 2, lw, nh);
-      ctx.shadowBlur = 0;
       ctx.fillStyle = "#fff"; ctx.fillRect(x, y - 2, lw, 4);
     }
 
@@ -393,8 +392,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     ctx.fillText(score + " / " + GOAL, fx + fieldW - 10, hy + 12);
     ctx.textAlign = "left"; ctx.fillStyle = "#7fb4c6"; ctx.font = "700 12px " + FONT;
     ctx.fillText(LEVELS[level].name, fx + 10, hy + 36);
-    if (EV){ const bx = fx + 10, bw2 = fieldW - 20, by = hy + 44; ctx.fillStyle = "rgba(255,59,92,.2)"; ctx.fillRect(bx, by, bw2, 8); ctx.fillStyle = "#ff3b5c"; ctx.fillRect(bx, by, bw2 * EV.hp / EV.max, 8);
-      ctx.textAlign = "right"; ctx.fillStyle = "#ff8aa0"; ctx.font = "700 11px " + FONT; ctx.fillText("BOSS " + Math.ceil(EV.hp), fx + fieldW - 10, hy + 36); }
+    if (EV){ ctx.textAlign = "right"; ctx.fillStyle = "#ff8aa0"; ctx.font = "700 11px " + FONT; ctx.fillText("EVENT BATTLE", fx + fieldW - 10, hy + 36); }
 
     // 判定表示
     const a = 1 - (pn - judge.at) / 650;
@@ -414,11 +412,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     draw(g, pn); drawFw();
   }
 
-  cv.addEventListener("pointerdown", e => {
+  window.addEventListener("pointerdown", e => {   // プレイ中は画面のどこを押しても判定（複数指OK）
+    if (state !== "play") return;
     e.preventDefault();
     const i = Math.floor((e.clientX - L.fx) / L.laneW);
     if (e.clientX >= L.fx && i < KEYS) press(i);
-  });
+  }, {capture:true, passive:false});
   window.addEventListener("keydown", e => {
     if (e.repeat) return;
     const i = KEYS_PC.indexOf(e.key.toLowerCase());
@@ -429,7 +428,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   startBtn.addEventListener("click", () => { lvBox.hidden = true; begin(); });
 
   // ===== メイン／ガチャ =====
-  const SK = "overclocked_save_v1", COST = 100;
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build3";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -648,7 +647,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div></div>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +
@@ -743,10 +742,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const ADV_UNLOCK = 20;   // コレクションの種類数がこの数以上になると、メニューに出現
   const CHAPTERS = ["第1章 電脳の入口", "第2章 ノイズの森", "第3章 ジャンク街", "第4章 回路の谷", "第5章 深層ネットワーク"];
   const ST_NAMES = ["入口", "外縁部", "第一層", "通路", "中継点", "機関室", "深部", "回廊", "最終防衛線", "最奥"];
-  const P10 = [1, 1.5, 2.3, 3.4, 5.1, 7.7, 11.6, 17.5, 26.3, 39.6];   // 章内ステージ1〜10の敵の強さ。後半ほど急に上がる（章ごとの差は+8%ずつ）
+  const P10 = [1, 1.5, 2.3, 3.4, 5.1, 7.7, 11.6, 17.5, 26.3, 39.6];   // 章内ステージ1〜10の敵の強さ。後半ほど急に上がる（章ごとの差は+15%ずつ）
   const EVLV = {3:"normal", 6:"hard", 10:"veryhard"};   // イベントバトルになるステージと、音ゲー難易度
   const STAGES = [];
-  CHAPTERS.forEach((_, c) => P10.forEach((p, k) => STAGES.push({c:c + 1, s:k + 1, n:ST_NAMES[k], p:p * (1 + .08 * c), e:k < 2 ? 2 : 3, ev:EVLV[k + 1], boss:k === 9 ? 1 : 0})));
+  CHAPTERS.forEach((_, c) => P10.forEach((p, k) => STAGES.push({c:c + 1, s:k + 1, n:ST_NAMES[k], p:p * (1 + .15 * c), e:k < 2 ? 2 : 3, ev:EVLV[k + 1], boss:k === 9 ? 1 : 0})));
   const ENEMY = [["▲","ノイズ・ゴースト","#00f0ff"], ["◆","グリッチ・スライム","#ff2bd6"], ["●","バグ・オーブ","#f5ff3b"], ["■","ジャンク・ゴーレム","#39ff88"], ["✚","ウイルス・コア","#9d6bff"]];   // 記号は後で画像に差し替え予定
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
   const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
@@ -785,11 +784,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     aView('<div id="t2" style="font-size:22px">' + CHAPTERS[CUR_CH] + '</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
       STAGES.slice(c0, c0 + 10).map((st, k) => { const idx = c0 + k, ok = k <= S.cl[CUR_CH], e = enemyStats(idx);
         return '<button class="b s" id="st' + (idx + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + st.s + (k < S.cl[CUR_CH] ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
-          '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　BOSS HP ' + Math.round(LEVELS[st.ev].goal * st.p * EV_K) : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
+          '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　音ゲーをクリアで突破' : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
       '<button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
 
-  const TICK = 200, WAVES = 10, AUTO_HP = .6, EV_K = 8;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率／イベント(音ゲー)のボスHP係数
+  const TICK = 200, WAVES = 10, AUTO_HP = .6;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率
   const BATTLE_BGM = ["battle1.mp3", "battle2.mp3", "battle3.mp3"];
   const mBgm = new Audio("bgm1.mp3"), bBgm = new Audio();
   mBgm.loop = bBgm.loop = true; mBgm.volume = .7; bBgm.volume = .8;
@@ -876,18 +875,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   // イベントバトル：判定成功ごとにパーティの攻撃力でボスにダメージ
   function startEvent(n){
-    const st = STAGES[n - 1], sum = S.party.reduce((a, i) => a + stat(i, "atk"), 0), max = Math.round(LEVELS[st.ev].goal * st.p * EV_K);
+    const st = STAGES[n - 1];
     stopBattle(); menuBgm(false);
     setLevel(st.ev); notes = []; layout();
-    EV = {n, max, hp:max, dp:Math.round(sum * .5), dg:Math.round(sum * .4)};
-    hm.hidden = true; begin();
+    EV = {n}; hm.hidden = true; begin();
   }
   function evFinish(win){
     const est = STAGES[EV.n - 1], first = win && est.s > S.cl[est.c - 1], rw = win ? Math.round((first ? 1000 : 300) * ru(EV.n)) : 0;
     if (win){ if (first) S.cl[est.c - 1] = est.s; S.pt += rw; save(); }
     title.textContent = win ? "VICTORY" : "DEFEAT"; title.className = win ? "tcl" : "";
-    sub.innerHTML = "BOSS HP " + Math.max(0, Math.ceil(EV.hp)) + " / " + EV.max + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
-      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") : "<br>パーティを強化して再挑戦しよう");
+    sub.innerHTML = "HIT " + score + " / " + GOAL + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
+      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") : "<br>もう一度挑戦しよう");
     startBtn.textContent = "RETRY"; lvBox.hidden = true; $("toHome").textContent = "ステージ選択へ"; ov.hidden = false;
     if (win){ ov.style.background = "rgba(4,6,14,.5)"; celebrate(false); sfxClear(); } else sfxLose();
   }

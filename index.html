@@ -434,14 +434,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
   const RC = {N:"#7f93a8", R:"#00f0ff", SR:"#ff2bd6", SSR:"#f5ff3b", UL:"#ffffff"};
-  // 全48体（001a〜033a.jpg ＋ n001〜n015.jpg）。名前を付けたい場合は CN に {内部番号+1:"名前"} を追加
+  // 全48体（001a〜033a.jpg ＋ n001〜n015.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
   const CN = {};
   const CH = [];
   // 内部番号(セーブ用)は既存33体の後ろにN 15枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
-  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push([CN[i + 1] || (i < 33 ? "No." + String(i + 1).padStart(3, "0") : "N-" + String(i - 32).padStart(3, "0")), r]); } });
+  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
   const RANKS = ["N", "R", "SR", "SSR", "UL"];
   const SHOW = CH.map((c, k) => k).sort((a, b) => RANKS.indexOf(CH[a][1]) - RANKS.indexOf(CH[b][1]) || a - b);   // コレクションの表示順（N→R→SR→SSR→UL）
-  const MAXE = {N:99, R:70, SR:50, SSR:30, UL:10};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
+  const NUM = [];   // 表示番号（レアリティ順の通し番号。高レアほど後ろ）。名前はここで確定
+  SHOW.forEach((k, r) => { NUM[k] = r + 1; CH[k][0] = CN[r + 1] || "No." + String(r + 1).padStart(3, "0"); });
+  const MAXE = {N:99, R:70, SR:50, SSR:30, UL:5};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
   let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], adv:0};
   try { Object.assign(S, JSON.parse(localStorage.getItem(SK) || "{}")); } catch(e){}
@@ -450,7 +452,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const hm = $("home"), SUB0 = sub.innerHTML;
   const imgOf = i => i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : "n" + String(i - 32).padStart(3, "0") + ".jpg";
   const card = (i, ex, d, n) => { const [nm, r] = CH[i];
-    return '<div class="c ' + r + ' ' + (ex || "") + '" data-i="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + ';animation-delay:' + (d || 0) + 'ms"><div class="im"><span>' + (i + 1) + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + '</b>' + nm + (n ? '<i>' + n + '</i>' : '') + '</div>';
+    return '<div class="c ' + r + ' ' + (ex || "") + '" data-i="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + ';animation-delay:' + (d || 0) + 'ms"><div class="im"><span>' + NUM[i] + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + '</b>' + nm + (n ? '<i>' + n + '</i>' : '') + '</div>';
   };
   function roll(guar){
     const r = Math.random() * 100;
@@ -559,42 +561,62 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       fx.style.transform = "translate(" + ((Math.random() - .5) * k * 10) + "px," + ((Math.random() - .5) * k * 10) + "px)";
       if (k >= 1){ FX.mode = "flash"; FX.t0 = now; fx.style.transform = ""; sfxHit(); }
     } else if (FX.mode === "ul"){
-      const k = Math.min(t / 4, 1); FX.pu = FX.pu || {};
-      if (t < 4){
-        x.lineWidth = 3; x.strokeStyle = c;
-        for (let i = 0; i < 6; i++){ const a = t * (i + 1) * (i % 2 ? -.8 : .8); x.beginPath(); x.arc(cx, cy, (60 + i * 38) * (1.5 - k * .6), a, a + 3.2); x.stroke(); }
-        const gr = x.createRadialGradient(cx, cy, 0, cx, cy, 30 + k * 220); gr.addColorStop(0, "#fff"); gr.addColorStop(.4, c); gr.addColorStop(1, "rgba(0,0,0,0)");
+      const T = 5.5, k = Math.min(t / T, 1); FX.pu = FX.pu || {};
+      const rb = o => "hsl(" + ((now / 3 + (o || 0)) % 360) + ",100%,62%)";
+      if (t < T){
+        x.globalAlpha = .12 + k * .18;   // オーロラ帯
+        for (let i = 0; i < 4; i++){ x.fillStyle = rb(i * 70); x.fillRect(0, H * (.15 + i * .22) + Math.sin(t * 2 + i) * 40, W, 50 + k * 60); }
+        x.globalAlpha = 1;
+        for (let j = 0; j < 6; j++){ const a = Math.random() * 6.283, sp = 6 + Math.random() * 8; P.push({x:cx, y:cy, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp, g:0, ac:1, ln:1, life:1, d:.025, c:rb(Math.random() * 360), z:2}); }   // ワープ線
+        x.lineWidth = 3 + k * 3;
+        for (let i = 0; i < 8; i++){ x.strokeStyle = rb(i * 45); const a = t * (i + 1) * (i % 2 ? -.7 : .7); x.beginPath(); x.arc(cx, cy, (50 + i * 34) * (1.6 - k * .7), a, a + 3); x.stroke(); }
+        const gr = x.createRadialGradient(cx, cy, 0, cx, cy, 30 + k * 300); gr.addColorStop(0, "#fff"); gr.addColorStop(.35, rb()); gr.addColorStop(1, "rgba(0,0,0,0)");
         x.fillStyle = gr; x.fillRect(0, 0, W, H);
-        for (let j = 0; j < 8; j++){ const a = Math.random() * 6.283, R = Math.max(W, H) * .6; P.push({x:cx + Math.cos(a) * R, y:cy + Math.sin(a) * R, in:1, life:1, c:fxCol("UL"), z:2 + Math.random() * 2}); }
-        fx.style.transform = "translate(" + ((Math.random() - .5) * k * 22) + "px," + ((Math.random() - .5) * k * 22) + "px)";
-        [1.2, 2.2, 3, 3.5].forEach((tt, n) => { if (t >= tt && !FX.pu[n]){ FX.pu[n] = 1; FX.fl = now; if (SFX) try { boom(0, .6 + n * .2); } catch(e){} } });
-        if (FX.fl){ x.globalAlpha = Math.max(0, 1 - (now - FX.fl) / 350) * .6; x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.globalAlpha = 1; }
+        for (let j = 0; j < 8; j++){ const a = Math.random() * 6.283, R = Math.max(W, H) * .6; P.push({x:cx + Math.cos(a) * R, y:cy + Math.sin(a) * R, in:1, life:1, c:rb(Math.random() * 360), z:2 + Math.random() * 2}); }
+        if (t > 1.2 && Math.random() < k * .5){   // 稲妻
+          const a = Math.random() * 6.283, R = Math.max(W, H) * .7;
+          x.strokeStyle = "#fff"; x.lineWidth = 2 + Math.random() * 3; x.shadowColor = rb(); x.shadowBlur = 18; x.beginPath(); x.moveTo(cx, cy);
+          for (let q = 1; q <= 10; q++) x.lineTo(cx + Math.cos(a) * R * q / 10 + (Math.random() - .5) * 60, cy + Math.sin(a) * R * q / 10 + (Math.random() - .5) * 60);
+          x.stroke(); x.shadowBlur = 0;
+        }
+        fx.style.transform = "translate(" + ((Math.random() - .5) * k * 40) + "px," + ((Math.random() - .5) * k * 40) + "px)";
+        [1, 2, 2.8, 3.5, 4.1, 4.6, 5, 5.25].forEach((tt, n) => { if (t >= tt && !FX.pu[n]){ FX.pu[n] = 1; FX.fl = now; if (SFX) try { boom(0, .5 + n * .1); } catch(e){} } });   // 心音と閃光
+        if (FX.fl){ x.globalCompositeOperation = "source-over"; x.globalAlpha = Math.max(0, 1 - (now - FX.fl) / 300) * .65; x.fillStyle = rb(); x.fillRect(0, 0, W, H); x.globalAlpha = 1; x.globalCompositeOperation = "lighter"; }
+        if (t > .3 && t < 2.6 && Math.floor(t * 5) % 2 === 0){   // WARNING帯
+          x.globalCompositeOperation = "source-over"; x.globalAlpha = .55; x.fillStyle = "#ff1030"; x.fillRect(0, cy - 46, W, 92); x.globalAlpha = 1;
+          x.textAlign = "center"; x.textBaseline = "middle"; x.font = "900 " + Math.min(W * .09, 56) + "px " + FONT; x.fillStyle = "#fff"; x.fillText("!! WARNING !!", cx, cy); x.globalCompositeOperation = "lighter";
+        }
       } else {
-        const u = t - 4; fx.style.transform = "";
-        if (!FX.pu.go){ FX.pu.go = 1; sfxRev("UL"); if (SFX) try { boom(0, 1.4); } catch(e){} burst("UL"); burst("UL"); }
-        rays(Math.max(.2, 1 - u * .3), t);
-        x.lineWidth = 6; x.strokeStyle = "#fff";
-        for (let i = 0; i < 3; i++){ const R = (u - i * .15) * 1100; if (R > 0){ x.globalAlpha = Math.max(0, 1 - R / 1500); x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.stroke(); } }
-        x.globalAlpha = Math.max(0, 1 - u * 1.4); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
-        x.globalCompositeOperation = "source-over"; x.globalAlpha = Math.min(1, u * 3) * Math.max(0, Math.min(1, (1.9 - u) * 3));
-        x.textAlign = "center"; x.textBaseline = "middle"; x.font = "900 " + Math.min(W * .075, 64) * (1 + (1 - Math.min(1, u * 2)) * .8) + "px " + FONT;
-        x.shadowColor = c; x.shadowBlur = 30; x.fillStyle = "#fff"; x.fillText("ULTRA LEGEND", cx, cy); x.shadowBlur = 0;
+        const u = t - T; fx.style.transform = u < .5 ? "translate(" + ((Math.random() - .5) * 30) + "px," + ((Math.random() - .5) * 30) + "px)" : "";
+        if (!FX.pu.go){ FX.pu.go = 1; FX.pu.nf = 0; if (SFX) try { sfxUL(); } catch(e){} burst("UL"); burst("UL"); burst("UL"); }
+        if (u < 2.6 && u > FX.pu.nf * .18){ FX.pu.nf++; burst("UL", Math.random() * W, Math.random() * H * .7, 70); }   // 連続花火
+        rays(Math.max(.25, 1 - u * .25), t * 1.5);
+        x.lineWidth = 8;
+        for (let i = 0; i < 5; i++){ const R = (u - i * .12) * 1300; if (R > 0){ x.strokeStyle = i % 2 ? "#fff" : rb(i * 60); x.globalAlpha = Math.max(0, 1 - R / 1700); x.beginPath(); x.arc(cx, cy, R, 0, 6.283); x.stroke(); } }
+        x.globalAlpha = Math.max(0, 1 - u * 1.1); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+        x.globalCompositeOperation = "source-over";
+        const al = Math.min(1, u * 4) * Math.max(0, Math.min(1, (3 - u) * 3)), sc = 1 + Math.max(0, 1 - u * 2.5) * 2, fs = Math.min(W * .085, 70) * sc;
+        x.globalAlpha = al; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "900 " + fs + "px " + FONT;
+        const tg = x.createLinearGradient(cx - W * .4, 0, cx + W * .4, 0); tg.addColorStop(0, rb()); tg.addColorStop(.5, "#fff"); tg.addColorStop(1, rb(180));
+        x.shadowColor = rb(); x.shadowBlur = 40; x.fillStyle = tg; x.fillText("ULTRA LEGEND", cx, cy); x.shadowBlur = 0;
+        x.font = "900 " + Math.min(W * .05, 36) * sc + "px " + FONT; x.fillStyle = "#fff"; x.fillText("UL 降臨！", cx, cy + fs * .85);
         x.globalAlpha = 1; x.globalCompositeOperation = "lighter";
-        if (u > 2){ FX.mode = "wait"; FX.next && FX.next(); }
+        if (u > 3.1){ FX.mode = "wait"; FX.next && FX.next(); }
       }
     } else if (FX.mode === "flash"){
       rays(1, t * 2); x.globalAlpha = Math.max(0, 1 - t * 2.5); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.globalAlpha = 1;
       if (t > .45){ FX.mode = "wait"; FX.next && FX.next(); }
     } else if (FX.mode === "reveal" && FX.rar !== "N"){
       rays(FX.rar === "UL" ? .55 : FX.rar === "SSR" ? .35 : .18, t * .4);
-      if (FX.rar === "UL" && Math.random() < .05) burst("UL", Math.random() * W, Math.random() * H * .7, 60);
+      if (FX.rar === "UL"){ if (Math.random() < .12) burst("UL", Math.random() * W, Math.random() * H * .7, 70); if (Math.random() < .6) P.push({x:Math.random() * W, y:-10, vx:(Math.random() - .5) * 2, vy:2 + Math.random() * 3, g:.02, d:.004, c:fxCol("UL"), z:3 + Math.random() * 4, life:1}); }
     }
     for (let i = P.length - 1; i >= 0; i--){
       const p = P[i];
       if (p.in){ p.x += (cx - p.x) * .07; p.y += (cy - p.y) * .07; p.life -= .012; if (Math.hypot(cx - p.x, cy - p.y) < 20) p.life = 0; }
-      else { p.x += p.vx; p.y += p.vy; p.vy += p.g; p.life -= .014; }
+      else { if (p.ac){ p.vx *= 1.06; p.vy *= 1.06; } p.x += p.vx; p.y += p.vy; p.vy += p.g; p.life -= p.d || .014; }
       if (p.life <= 0){ P.splice(i, 1); continue; }
-      x.globalAlpha = p.life; x.fillStyle = p.c; x.fillRect(p.x, p.y, p.z, p.z);
+      x.globalAlpha = p.life; x.fillStyle = p.c;
+      if (p.ln){ x.strokeStyle = p.c; x.lineWidth = 2; x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(p.x - p.vx * 3, p.y - p.vy * 3); x.stroke(); } else x.fillRect(p.x, p.y, p.z, p.z);
     }
     x.globalAlpha = 1; x.globalCompositeOperation = "source-over";
   }
@@ -608,7 +630,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     fx.hidden = false;
     const ul = top === "UL";
     await new Promise(r => { FX = {mode:ul ? "ul" : "charge", t0:performance.now(), rar:top, next:r};
-      if (ul){ if (SFX) try { noise(0, 4, 200, 9000, .55, true); sweep(4, 40, 500, .16); } catch(e){} } else sfxCharge();
+      if (ul){ if (SFX) try { noise(0, 5.5, 150, 10000, .6, true); sweep(5.5, 40, 700, .18); sweep(5.5, 200, 1800, .08); } catch(e){} } else sfxCharge();
       requestAnimationFrame(fxLoop); });
     for (const [i, nw] of res){
       if (FX.skip) break;
@@ -659,13 +681,20 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
   // 初期値（体力は他の10倍）と、強化1回あたりの伸び率（初期値×この割合が加算）。高レアほど初期値も伸びも大きく、強化回数は少ない
-  const BASE = {N:{hp:100, atk:10, def:10, mnd:10}, R:{hp:200, atk:20, def:20, mnd:20}, SR:{hp:400, atk:40, def:40, mnd:40}, SSR:{hp:800, atk:80, def:80, mnd:80}, UL:{hp:2000, atk:200, def:200, mnd:200}};
-  const GROW = {N:.03, R:.05, SR:.08, SSR:.15, UL:.6};
+  const BASE = {N:{hp:100, atk:10, def:10, mnd:10}, R:{hp:200, atk:20, def:20, mnd:20}, SR:{hp:400, atk:40, def:40, mnd:40}, SSR:{hp:800, atk:80, def:80, mnd:80}, UL:{hp:10000, atk:1000, def:1000, mnd:1000}};
+  const GROW = {N:.03, R:.05, SR:.08, SSR:.15, UL:.1};
   const lvOf = i => S.lv[i] || 0, spare = i => (S.inv[i] || 0) - 1 - lvOf(i);   // 余剰＝所持数−1−強化済み回数
   function stat(i, k){   // 初期値×キャラ個体差(0.8〜1.2)×(1＋伸び率×強化回数)
     const ki = STATS.findIndex(a => a[1] === k), v = .8 + .4 * ((Math.abs(Math.sin((i + 1) * 12.9898 + ki * 78.233) * 43758.5453)) % 1);
     return Math.round(BASE[CH[i][1]][k] * v * (1 + GROW[CH[i][1]] * lvOf(i)));
   }
+  const sfxUL = () => { if (!SFX) return; try {
+    boom(0, 1.4); boom(.3, 1.1); boom(.6, .9); noise(0, 3, 12000, 300, .7); noise(.2, 3, 9000, 1500, .35);
+    [48, 55, 60, 64, 67, 72, 76].forEach(m => note(m, 0, 4, "sawtooth", .06, 3500));
+    [84, 88, 91].forEach(m => note(m, 0, 4, "sine", .1, 8000, .9));
+    [72, 76, 79, 84, 88, 91, 96, 100, 103, 108, 112, 115].forEach((m, k) => note(m, k * .06, 1.6, "triangle", .14, 8000));
+    [84, 91, 96, 103, 108].forEach(m => note(m, 1, 3, "sine", .13, 9000, .9));
+  } catch(e){} };
   const sfxClear = () => { if (!SFX) return; try {
     [72, 76, 79, 84].forEach((m, k) => note(m, k * .09, .6, "triangle", .17, 4500)); note(91, .4, 1, "sine", .12, 8000, .8); boom(0, .3);
   } catch(e){} };
@@ -710,10 +739,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   // ===== ADVENTURE（簡易コマンドバトル）=====
   const ADV_UNLOCK = 20;   // コレクションの種類数がこの数以上になると、メニューに出現
-  const STAGES = [   // p＝敵の強さ
-    {n:"電脳の入口", p:1, e:2}, {n:"ノイズの森", p:1.8, e:2}, {n:"ジャンク街", p:3.2, e:3, ev:"normal"}, {n:"回路の谷", p:5.5, e:3},
-    {n:"ビット要塞", p:9, e:3}, {n:"オーバークロック塔", p:15, e:3, ev:"hard"}, {n:"深層ネットワーク", p:25, e:3}, {n:"システム中枢", p:42, e:1, boss:1, ev:"veryhard"}
-  ];
+  const CHAPTERS = ["第1章 電脳の入口", "第2章 ノイズの森", "第3章 ジャンク街", "第4章 回路の谷", "第5章 深層ネットワーク"];
+  const ST_NAMES = ["入口", "外縁部", "第一層", "通路", "中継点", "機関室", "深部", "回廊", "最終防衛線", "最奥"];
+  const P10 = [1, 1.5, 2.3, 3.4, 5.1, 7.7, 11.6, 17.5, 26.3, 39.6];   // 章内ステージ1〜10の敵の強さ。後半ほど急に上がる（章ごとの差は+8%ずつ）
+  const EVLV = {3:"normal", 6:"hard", 10:"veryhard"};   // イベントバトルになるステージと、音ゲー難易度
+  const STAGES = [];
+  CHAPTERS.forEach((_, c) => P10.forEach((p, k) => STAGES.push({c:c + 1, s:k + 1, n:ST_NAMES[k], p:p * (1 + .08 * c), e:k < 2 ? 2 : 3, ev:EVLV[k + 1], boss:k === 9 ? 1 : 0})));
   const ENEMY = [["▲","ノイズ・ゴースト","#00f0ff"], ["◆","グリッチ・スライム","#ff2bd6"], ["●","バグ・オーブ","#f5ff3b"], ["■","ジャンク・ゴーレム","#39ff88"], ["✚","ウイルス・コア","#9d6bff"]];   // 記号は後で画像に差し替え予定
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
   const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
@@ -730,22 +761,32 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       '<div class="slots">' + [0, 1, 2, 3].map(k => P[k] != null ? '<div class="slot" style="border:1px solid ' + RC[CH[P[k]][1]] + ';color:' + RC[CH[P[k]][1]] + '">' + CH[P[k]][0] + '</div>' : '<div class="slot">＋</div>').join("") + '</div>' +
       '<button class="b" id="ast"' + (P.length < 4 ? " disabled" : "") + '>ステージ選択へ</button>' +
       '<div class="g">' + owned().map(i => { const r = CH[i][1], k = P.indexOf(i);
-        return '<div class="atile' + (k >= 0 ? " on" : "") + '" data-a="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + '"><div class="im"><span>' + (i + 1) + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + ' Lv' + (lvOf(i) + 1) + '</b><br>' + CH[i][0] + '<div class="as">' + statTxt(i) + '</div>' + (k >= 0 ? '<i>' + (k + 1) + '</i>' : '') + '</div>'; }).join("") +
+        return '<div class="atile' + (k >= 0 ? " on" : "") + '" data-a="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + '"><div class="im"><span>' + NUM[i] + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + ' Lv' + (lvOf(i) + 1) + '</b><br>' + CH[i][0] + '<div class="as">' + statTxt(i) + '</div>' + (k >= 0 ? '<i>' + (k + 1) + '</i>' : '') + '</div>'; }).join("") +
       '</div><button class="b s" id="bk">← HOME</button>', true);
+  }
+  let CUR_CH = 0;   // 表示中の章(0〜4)
+  const ru = n => { const st = STAGES[n - 1]; return st.s * (1 + .25 * (st.c - 1)); };   // 報酬の基準（ステージ番号×章ボーナス）
+  const stLabel = n => { const st = STAGES[n - 1]; return "第" + st.c + "章 STAGE " + st.s + "　" + st.n; };
+  function advChapters(){
+    menuBgm(true); battleBgm(false);
+    aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">章を選んでください。前の章をクリアすると次の章が解放されます</div>' +
+      CHAPTERS.map((nm, c) => { const ok = S.adv >= c * 10, done = Math.max(0, Math.min(10, S.adv - c * 10));
+        return '<button class="b s" id="ch' + c + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:14px;line-height:1.6">' + nm + '<br><span class="dim">クリア ' + done + ' / 10' + (done >= 10 ? " ★" : "") + (ok ? "" : "　（前の章をクリアで解放）") + '</span></button>'; }).join("") +
+      '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
   function advStage(){
     menuBgm(true); battleBgm(false);
     S.party = S.party.filter(i => S.inv[i]);
     if (S.party.length < 4) return advParty();
-    const sum = k => S.party.reduce((a, i) => a + stat(i, k), 0);
-    aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
-      STAGES.map((st, k) => { const ok = k <= S.adv, e = enemyStats(k);
-        return '<button class="b s" id="st' + (k + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + (k + 1) + (k < S.adv ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
-          '<br><span class="dim">' + (st.ev ? '♪ 音ゲーイベント（' + LEVELS[st.ev].name + '）　BOSS HP ' + Math.round(LEVELS[st.ev].goal * st.p * EV_K) : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
-      '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
+    const sum = k => S.party.reduce((a, i) => a + stat(i, k), 0), c0 = CUR_CH * 10;
+    aView('<div id="t2" style="font-size:22px">' + CHAPTERS[CUR_CH] + '</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' +
+      STAGES.slice(c0, c0 + 10).map((st, k) => { const idx = c0 + k, ok = idx <= S.adv, e = enemyStats(idx);
+        return '<button class="b s" id="st' + (idx + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + st.s + (idx < S.adv ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
+          '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　BOSS HP ' + Math.round(LEVELS[st.ev].goal * st.p * EV_K) : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
+      '<button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
 
-  const TICK = 200, WAVES = 6, AUTO_HP = .6, EV_K = 12;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率／イベント(音ゲー)のボスHP係数
+  const TICK = 200, WAVES = 10, AUTO_HP = .6, EV_K = 8;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率／イベント(音ゲー)のボスHP係数
   const BATTLE_BGM = ["battle1.mp3", "battle2.mp3", "battle3.mp3"];
   const mBgm = new Audio("bgm1.mp3"), bBgm = new Audio();
   mBgm.loop = bBgm.loop = true; mBgm.volume = .7; bBgm.volume = .8;
@@ -808,17 +849,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function endBattle(win){
     B.over = true; B.win = win; clearInterval(B.timer); battleBgm(false);
-    if (win){ B.first = B.n > S.adv; B.rw = (B.first ? 400 : 100) * B.n; if (B.first) S.adv = B.n; S.pt += B.rw; save(); sfxClear(); } else sfxLose();
+    if (win){ B.first = B.n > S.adv; B.rw = Math.round((B.first ? 400 : 100) * ru(B.n)); if (B.first) S.adv = B.n; S.pt += B.rw; save(); sfxClear(); } else sfxLose();
     bUpdate();
   }
   function bBuild(){
     aView('<div class="dim" id="bhead"></div><div class="ens" id="bens"></div><div class="log" id="blog"></div><div class="pcs">' +
-      B.party.map((p, k) => '<div class="pc" id="pc' + k + '" style="border-color:' + RC[CH[p.id][1]] + ';color:' + RC[CH[p.id][1]] + '"><div class="im"><span>' + (p.id + 1) + '</span><img src="' + imgOf(p.id) + '" onerror="this.remove()"></div><div class="nm">' + CH[p.id][0] + '</div><div class="hb"><i id="pb' + k + '"></i></div><div class="dim" id="pt' + k + '"></div></div>').join("") +
+      B.party.map((p, k) => '<div class="pc" id="pc' + k + '" style="border-color:' + RC[CH[p.id][1]] + ';color:' + RC[CH[p.id][1]] + '"><div class="im"><span>' + NUM[p.id] + '</span><img src="' + imgOf(p.id) + '" onerror="this.remove()"></div><div class="nm">' + CH[p.id][0] + '</div><div class="hb"><i id="pb' + k + '"></i></div><div class="dim" id="pt' + k + '"></div></div>').join("") +
       '</div><div id="bfoot" style="width:100%;display:flex;flex-direction:column;gap:10px;align-items:center"></div>');
     bUpdate();
   }
   function bUpdate(){
-    $("bhead").textContent = "STAGE " + B.n + "　" + STAGES[B.n - 1].n + "　WAVE " + B.wave + "/" + WAVES + "　撃破 " + B.kills;
+    $("bhead").textContent = stLabel(B.n) + "　WAVE " + B.wave + "/" + WAVES + "　撃破 " + B.kills;
     $("bens").innerHTML = B.en.map(e => '<div class="en' + (e.hp <= 0 ? " dead" : e.hit ? " hit" : "") + '" style="color:' + e.col + '"><div class="sy">' + e.sym + '</div>' + e.name + bar(e.hp, e.max, e.col) + '</div>').join("");
     B.en.forEach(e => { e.hit = 0; });
     $("blog").innerHTML = B.log.join("<br>");
@@ -830,7 +871,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
         : '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>'; }
   }
 
-  // 音ゲーイベントバトル：判定成功ごとにパーティの攻撃力でボスにダメージ
+  // イベントバトル：判定成功ごとにパーティの攻撃力でボスにダメージ
   function startEvent(n){
     const st = STAGES[n - 1], sum = S.party.reduce((a, i) => a + stat(i, "atk"), 0), max = Math.round(LEVELS[st.ev].goal * st.p * EV_K);
     stopBattle(); menuBgm(false);
@@ -839,7 +880,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     hm.hidden = true; begin();
   }
   function evFinish(win){
-    const first = win && EV.n > S.adv, rw = win ? (first ? 1000 : 300) * EV.n : 0;
+    const first = win && EV.n > S.adv, rw = win ? Math.round((first ? 1000 : 300) * ru(EV.n)) : 0;
     if (win){ if (first) S.adv = EV.n; S.pt += rw; save(); }
     title.textContent = win ? "VICTORY" : "DEFEAT"; title.className = win ? "tcl" : "";
     sub.innerHTML = "BOSS HP " + Math.max(0, Math.ceil(EV.hp)) + " / " + EV.max + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
@@ -852,7 +893,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const ta = e.target.closest("[data-a]");
     if (ta){ const i = +ta.dataset.a, k = S.party.indexOf(i); if (k >= 0) S.party.splice(k, 1); else if (S.party.length < 4) S.party.push(i); save(); sfxSel(); advParty(); return true; }
     const id = e.target.id;
-    if (id === "badv" || id === "ast"){ stopBattle(); advStage(); return true; }
+    if (id === "badv"){ stopBattle(); CUR_CH = Math.min(4, Math.floor(S.adv / 10)); advStage(); return true; }
+    if (id === "ast"){ stopBattle(); advStage(); return true; }
+    if (id === "achs"){ advChapters(); return true; }
+    if (/^ch\d$/.test(id)){ CUR_CH = +id[2]; advStage(); return true; }
     if (id === "apt"){ stopBattle(); advParty(); return true; }
     if (/^st\d+$/.test(id)){ const n = +id.slice(2); if (n <= S.adv + 1) STAGES[n - 1].ev ? startEvent(n) : startBattle(n); return true; }
     if (id === "retry"){ startBattle(B.n); return true; }

@@ -106,6 +106,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .en .mi span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;opacity:.4}
 .en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
+.cn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:46px;height:46px;padding:0;font-size:22px;border:1px solid var(--cyan);background:rgba(4,6,14,.72);color:#fff;z-index:5;box-shadow:0 0 10px rgba(0,240,255,.4)}
+.cn i{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--mag);font:700 11px/18px sans-serif;font-style:normal}
+.ac{width:100%;border:1px solid #2a5566;padding:10px;text-align:left;font-size:13px;line-height:1.6;background:rgba(8,14,30,.95)}.ac.d{border-color:#f5ff3b}.ac.g{opacity:.45}
 </style>
 </head>
 <body>
@@ -220,6 +223,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   function finish(cleared){
     state = "over";
     try { bgm.pause(); } catch(e){}
+    S.st.pl++; if (cleared){ S.st.ok++; if (cnt.m === 0) S.st.fc++; } S.st.mc = Math.max(S.st.mc, maxCombo); save();
     if (EV) return evFinish(cleared);
     const fcb = cleared && cnt.m === 0;
     title.textContent = fcb ? "FULL COMBO!" : cleared ? "CLEAR" : "GAME OVER";
@@ -436,28 +440,32 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   startBtn.addEventListener("click", () => { lvBox.hidden = true; begin(); });
 
   // ===== メイン／ガチャ =====
-  const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c);   // 章の数
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build5";   // 画面に表示される版番号（キャッシュ確認用）
+  const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c), NST = NCH * 10;   // 章の数／全ステージ数
+  const normSt = o => { const r = {}; ["pl", "ok", "fc", "g", "mc"].forEach(k => { r[k] = Math.max(0, ((o && o[k]) | 0)); }); return r; };   // 累計記録：プレイ数・クリア数・フルコンボ数・ガチャ回数・最大コンボ
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build8";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
   const RC = {N:"#7f93a8", R:"#00f0ff", SR:"#ff2bd6", SSR:"#f5ff3b", UL:"#ffffff"};
-  // 全59体（001a〜033a.jpg ＋ n001〜n015.jpg ＋ r001〜r008.jpg ＋ sr001〜sr003.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
+  // 全64体（001a〜033a.jpg ＋ n001〜n015.jpg ＋ r001〜r008.jpg ＋ sr001〜sr008.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
   const CN = {};
   const CH = [];
-  // 内部番号(セーブ用)は既存33体の後ろにN 15枚・R 8枚・SR 3枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
-  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",3]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
+  // 内部番号(セーブ用)は既存33体の後ろにN 15枚・R 8枚・SR 8枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
+  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",8]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
   const RANKS = ["N", "R", "SR", "SSR", "UL"];
   const SHOW = CH.map((c, k) => k).sort((a, b) => RANKS.indexOf(CH[a][1]) - RANKS.indexOf(CH[b][1]) || a - b);   // コレクションの表示順（N→R→SR→SSR→UL）
   const NUM = [];   // 表示番号（レアリティ順の通し番号。高レアほど後ろ）。名前はここで確定
   SHOW.forEach((k, r) => { NUM[k] = r + 1; CH[k][0] = CN[r + 1] || "No." + String(r + 1).padStart(3, "0"); });
   const MAXE = {N:99, R:70, SR:50, SSR:30, UL:5};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
-  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0)};
+  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0)};
   let _sv = {}; try { _sv = JSON.parse(localStorage.getItem(SK) || "{}") || {}; Object.assign(S, _sv); } catch(e){}
   if (!Array.isArray(_sv.cl)) S.cl = CHI.map(c => Math.max(0, Math.min(10, (_sv.adv | 0) - c * 10)));   // 旧セーブ(全章通しの進行)を章別に変換
   S.cl = CHI.map(c => Math.max(0, Math.min(10, S.cl[c] | 0))); delete S.adv;
   S.cb = CHI.map(c => Array.isArray(S.cb) && S.cb[c] ? 1 : 0);   // 章クリア特典の受け取り済みフラグ
+  S.tw = Math.max(0, S.tw | 0); S.st = normSt(S.st);   // 無限の塔の最高階／累計記録
+  S.ac = S.ac && typeof S.ac === "object" && !Array.isArray(S.ac) ? S.ac : {};   // 受け取り済みの実績
+  S.ms = Array.from({length:NST}, (_, i) => (Array.isArray(S.ms) ? S.ms[i] | 0 : 0) & 3);   // ステージ別ミッション達成（bit0, bit1）
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
@@ -477,7 +485,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   let busy = false, rsConfirm = false;
   async function pull(n){
     if (busy || S.pt < COST * n) return;
-    busy = true; S.pt -= COST * n; const res = [];
+    busy = true; S.pt -= COST * n; S.st.g += n; const res = [];
     for (let k = 0; k < n; k++){ const i = roll(n === 10 && k === 9); res.push([i, !S.inv[i]]); S.inv[i] = (S.inv[i] || 0) + 1; }
     save();
     try { await gfx(res); } catch(e){}
@@ -657,7 +665,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +
@@ -687,7 +695,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     else if (id === "ld"){ const m = importCode($("im").value); m === "OK" ? show("menu") : show("data", m); }
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
-    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
+    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
   $("toHome").addEventListener("click", () => { ov.hidden = true; if (EV){ EV = null; advStage(); } else show("menu"); });
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
@@ -739,13 +747,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   // ===== 引き継ぎコード =====
   const hs = t => { let h = 7; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0; return h.toString(36); };
-  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl, cb:S.cb})); return "OC1." + b + "." + hs(b); }
+  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl, cb:S.cb, tw:S.tw, st:S.st, ac:S.ac, ms:S.ms})); return "OC1." + b + "." + hs(b); }
   function importCode(c){
     try {
       const m = c.trim().split("."); if (m.length !== 3 || m[0] !== "OC1" || hs(m[1]) !== m[2]) return "コードが正しくありません";
       const d = JSON.parse(atob(m[1])), inv = {}, lv = {};
       for (let i = 0; i < CH.length; i++){ const n = Math.max(0, Math.min(999, (d.inv && d.inv[i]) | 0)); if (n){ inv[i] = n; lv[i] = Math.max(0, Math.min(maxE(i), n - 1, (d.lv && d.lv[i]) | 0)); } }
-      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, cb:(Array.isArray(d.cb) ? CHI.map(c => d.cb[c] ? 1 : 0) : CHI.map(() => 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
+      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, tw:Math.max(0, d.tw | 0), st:normSt(d.st), ac:normAc(d.ac), ms:Array.from({length:NST}, (_, i) => (Array.isArray(d.ms) ? d.ms[i] | 0 : 0) & 3), cb:(Array.isArray(d.cb) ? CHI.map(c => d.cb[c] ? 1 : 0) : CHI.map(() => 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
     } catch(e){ return "コードが正しくありません"; }
   }
   // ===== ADVENTURE（簡易コマンドバトル）=====
@@ -783,7 +791,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const bar = (v, m, c) => '<div class="hb"><i style="width:' + Math.max(0, v / m * 100) + '%' + (c ? ';background:' + c : '') + '"></i></div>';
   const statTxt = i => 'HP ' + stat(i, "hp") + '<br>ATK ' + stat(i, "atk") + ' DEF ' + stat(i, "def") + '<br>MND ' + stat(i, "mnd");
   function aView(html, keep){ const t = hm.scrollTop; hm.hidden = false; hm.className = "scr"; hm.innerHTML = '<div class="w jp">' + html + '</div>'; hm.scrollTop = keep ? t : 0; }
-  function enemyStats(k){ const st = STAGES[k], b = st.boss ? 1 : 0; return {hp:Math.round(110 * st.p * (b ? 4 : 1)), atk:Math.round(11 * st.p * (b ? 1.5 : 1)), def:Math.round(5 * st.p * (b ? 1.5 : 1))}; }
+  const enemyStats = k => enemyStatsOf(STAGES[k]);
+  function enemyStatsOf(st){ const b = st.boss ? 1 : 0; return {hp:Math.round(110 * st.p * (b ? 4 : 1)), atk:Math.round(11 * st.p * (b ? 1.5 : 1)), def:Math.round(5 * st.p * (b ? 1.5 : 1))}; }
 
   function advParty(){
     menuBgm(true); battleBgm(false);
@@ -804,6 +813,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     aView('<div id="t2" style="font-size:26px">ADVENTURE</div><div class="dim">好きな章から挑戦できます。各章はステージ1から順に進めます</div>' +
       CHAPTERS.map((nm, c) => { const done = S.cl[c];
         return '<button class="b s" id="ch' + c + '" style="text-align:left;padding:14px;line-height:1.6">' + nm + '<br><span class="dim">クリア ' + done + ' / 10' + (done >= 10 ? " ★" : "") + '</span><br><span class="dim" style="color:#f5ff3b">🎁 特典：' + cbText(c) + (S.cb[c] ? "（受取済）" : "") + '</span></button>' + cbBtn(c); }).join("") +
+      '<button class="b" id="btw">♾ 無限の塔（最高 ' + S.tw + 'F）</button>' +
       '<button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
   function advStage(){
@@ -814,11 +824,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     aView('<div id="t2" style="font-size:22px">' + CHAPTERS[CUR_CH] + '</div><div class="dim">パーティ合計 HP ' + sum("hp") + ' ・ ATK ' + sum("atk") + ' ・ DEF ' + sum("def") + ' ・ MND ' + sum("mnd") + '</div>' + cbBtn(CUR_CH) +
       STAGES.slice(c0, c0 + 10).map((st, k) => { const idx = c0 + k, ok = k <= S.cl[CUR_CH], e = enemyStats(idx);
         return '<button class="b s" id="st' + (idx + 1) + '"' + (ok ? "" : " disabled") + ' style="text-align:left;padding:12px 14px;line-height:1.6">STAGE ' + st.s + (k < S.cl[CUR_CH] ? " ★" : "") + '　' + st.n + (st.boss ? " 【BOSS】" : "") +
-          '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　音ゲーをクリアで突破' : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span></button>'; }).join("") +
+          '<br><span class="dim">' + (st.ev ? '♪ イベントバトル（' + LEVELS[st.ev].name + '）　音ゲーをクリアで突破' : '敵 HP ' + e.hp + ' ATK ' + e.atk + ' DEF ' + e.def) + (ok ? "" : "　（前のステージをクリアで解放）") + '</span>' + (ok ? msLine(idx) : "") + '</button>'; }).join("") +
       '<button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
 
-  const TICK = 200, WAVES = 10, AUTO_HP = .6;   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率
+  const TICK = 200, WAVES = 10, AUTO_HP = .6;
+  const TW_WAVES = 3, TW_PT = f => Math.round(100 * (1 + .12 * f) * (f % 10 === 0 ? 2 : 1));   // 無限の塔：1階あたりのウェーブ数／クリア報酬
+  const nWaves = () => B && B.tw ? TW_WAVES : WAVES;
+  const stOf = b => b.tw ? {c:(b.tw - 1) % 10 + 1, s:b.tw, e:3, boss:b.tw % 10 === 0 ? 1 : 0, p:1.2 * Math.pow(1.07, b.tw - 1)} : STAGES[b.n - 1];   // 塔は1階ごとに敵が約7%ずつ強くなる（10階ごとにボス）   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率
   const BATTLE_BGM = ["battle1.mp3", "battle2.mp3", "battle3.mp3"];
   const mBgm = new Audio("bgm1.mp3"), bBgm = new Audio();
   mBgm.loop = bBgm.loop = true; mBgm.volume = .7; bBgm.volume = .8;
@@ -847,12 +860,20 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     menuBgm(false); battleBgm(true);
     spawnWave(); bBuild(); B.timer = setInterval(tick, TICK);
   }
+  function startTower(f, carry){
+    stopBattle();
+    B = {n:0, tw:f, t:0, kills:0, wave:0, log:[], over:false, fs:"",
+      party:carry ? carry.map(p => ({...p, hp:p.hp > 0 ? Math.min(p.max, p.hp + Math.round(p.max * .3)) : 0, cd:2}))
+                  : S.party.map(i => ({id:i, hp:stat(i, "hp"), max:stat(i, "hp"), atk:stat(i, "atk"), def:stat(i, "def"), mnd:stat(i, "mnd"), cd:2}))};
+    menuBgm(false); battleBgm(true);
+    spawnWave(); bBuild(); B.timer = setInterval(tick, TICK);
+  }
   function spawnWave(){
-    const st = STAGES[B.n - 1], es = enemyStats(B.n - 1); B.wave++;
+    const st = stOf(B), es = enemyStatsOf(st); B.wave++;
     const pool = monPool(st.c - 1);
     B.en = Array.from({length:st.e}, (_, k) => { const m = (st.boss && k === 0) ? MON_BOSS : pool[(B.wave + k) % 2], hp = Math.round(es.hp * AUTO_HP); return {m, sym:MON_SYM[m % 5], name:MON_NAMES[m], col:MON_COL[m % 5], hp, max:hp, atk:es.atk, def:es.def}; });
     if (B.wave > 1) alive(B.party).forEach(p => { p.hp = Math.min(p.max, p.hp + Math.round(p.max * .1)); });
-    say("WAVE " + B.wave + "／" + WAVES + " 出現！");
+    say("WAVE " + B.wave + "／" + nWaves() + " 出現！");
   }
   function reap(){ B.en.forEach(e => { if (e.hp <= 0 && !e.dead){ e.dead = true; B.kills++; say(e.name + " 撃破！"); sfxKill(); } }); }
   function hitFx(k){ const el = $("pc" + k); if (el){ el.classList.remove("hit"); void el.offsetWidth; el.classList.add("hit"); } }
@@ -869,7 +890,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       } else { p.cd--; const d = calc(p.atk, t.def); t.hp = Math.max(0, t.hp - d); t.hit = 1; say(nm + "の攻撃！ " + d); sfxAtk(); }
       reap();
     }
-    if (!alive(B.en).length){ if (B.wave >= WAVES) return endBattle(true); spawnWave(); }
+    if (!alive(B.en).length){ if (B.wave >= nWaves()) return endBattle(true); spawnWave(); }
     else {
       const es = alive(B.en);
       if (r < es.length){
@@ -882,7 +903,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function endBattle(win){
     B.over = true; B.win = win; clearInterval(B.timer); battleBgm(false);
-    if (win){ const st = STAGES[B.n - 1]; B.first = st.s > S.cl[st.c - 1]; B.rw = Math.round((B.first ? 400 : 100) * ru(B.n)); if (B.first) S.cl[st.c - 1] = st.s; S.pt += B.rw; save(); sfxClear(); } else sfxLose();
+    if (B.tw){
+      if (win){ const f = B.tw; B.first = f > S.tw; B.rw = Math.round(TW_PT(f) * (B.first ? 3 : 1)); if (B.first) S.tw = f; S.pt += B.rw; save(); sfxClear(); } else sfxLose();
+      bUpdate(); return;
+    }
+    if (win){ const st = STAGES[B.n - 1]; B.first = st.s > S.cl[st.c - 1]; B.rw = Math.round((B.first ? 400 : 100) * ru(B.n)); if (B.first) S.cl[st.c - 1] = st.s;
+      const hs = B.party.reduce((a, p) => a + Math.max(0, p.hp), 0), hm2 = B.party.reduce((a, p) => a + p.max, 0);
+      B.ms = awardMs(B.n, [alive(B.party).length === B.party.length, hs / hm2 >= .5]);
+      S.pt += B.rw; save(); sfxClear(); } else sfxLose();
     bUpdate();
   }
   function bBuild(){
@@ -892,7 +920,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     bUpdate();
   }
   function bUpdate(){
-    $("bhead").textContent = stLabel(B.n) + "　WAVE " + B.wave + "/" + WAVES + "　撃破 " + B.kills;
+    $("bhead").textContent = (B.tw ? "無限の塔 " + B.tw + "F" : stLabel(B.n)) + "　WAVE " + B.wave + "/" + nWaves() + "　撃破 " + B.kills;
     const ek = B.n + ":" + B.wave;
     if (B.ek !== ek){ B.ek = ek;
       $("bens").innerHTML = B.en.map((e, k) => '<div class="en" id="en' + k + '" style="color:' + e.col + '"><div class="mi"><span>' + e.sym + '</span><img src="' + monImg(e.m) + '" onerror="this.remove()"></div>' + e.name + '<div class="hb"><i id="eb' + k + '" style="background:' + e.col + '"></i></div></div>').join(""); }
@@ -903,8 +931,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     B.party.forEach((p, k) => { $("pc" + k).classList.toggle("dead", p.hp <= 0); $("pb" + k).style.width = p.hp / p.max * 100 + "%"; $("pt" + k).textContent = p.hp; });
     const fs = B.over ? (B.win ? "w" : "l") : "r";
     if (fs !== B.fs){ B.fs = fs;
-      $("bfoot").innerHTML = fs === "r" ? '<button class="b s" id="ast">撤退する</button>'
-        : fs === "w" ? '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">撃破 ' + B.kills + '　+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + chNote(STAGES[B.n - 1]) + '</div><button class="b" id="ast">ステージ選択へ</button>'
+      $("bfoot").innerHTML = B.tw ? twFoot(fs) : fs === "r" ? '<button class="b s" id="ast">撤退する</button>'
+        : fs === "w" ? '<div class="pt">VICTORY</div><div class="dim" style="font-size:14px;color:#f5ff3b">撃破 ' + B.kills + '　+' + B.rw + ' PT' + (B.first ? "（初クリアボーナス込み）" : "") + chNote(STAGES[B.n - 1]) + msTxt(B.ms) + '</div><button class="b" id="ast">ステージ選択へ</button>'
         : '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><button class="b" id="retry">もう一度挑戦</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="ast">ステージ選択へ</button>'; }
   }
 
@@ -917,10 +945,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   function evFinish(win){
     const est = STAGES[EV.n - 1], first = win && est.s > S.cl[est.c - 1], rw = win ? Math.round((first ? 1000 : 300) * ru(EV.n)) : 0;
-    if (win){ if (first) S.cl[est.c - 1] = est.s; S.pt += rw; save(); }
+    let mr = null;
+    if (win){ if (first) S.cl[est.c - 1] = est.s; mr = awardMs(EV.n, [cnt.m === 0, cnt.p / Math.max(1, cnt.p + cnt.g) >= .8]); S.pt += rw; save(); }
     title.textContent = win ? "VICTORY" : "DEFEAT"; title.className = win ? "tcl" : "";
     sub.innerHTML = "HIT " + score + " / " + GOAL + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo +
-      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") + chNote(est) : "<br>もう一度挑戦しよう");
+      (win ? '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>' + (first ? "（初クリアボーナス込み）" : "") + chNote(est) + msTxt(mr) : "<br>もう一度挑戦しよう");
     startBtn.textContent = "RETRY"; lvBox.hidden = true; $("toHome").textContent = "ステージ選択へ"; ov.hidden = false;
     if (win){ ov.style.background = "rgba(4,6,14,.5)"; celebrate(false); sfxClear(); } else sfxLose();
   }
@@ -930,7 +959,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (ta){ const i = +ta.dataset.a, k = S.party.indexOf(i); if (k >= 0) S.party.splice(k, 1); else if (S.party.length < 4) S.party.push(i); save(); sfxSel(); advParty(); return true; }
     const id = e.target.id;
     if (id === "badv"){ stopBattle(); S.party = S.party.filter(i => S.inv[i]); S.party.length < 4 ? advParty() : advChapters(); return true; }
-    if (id === "ast"){ stopBattle(); advStage(); return true; }
+    if (id === "ast"){ const tw = B && B.tw; stopBattle(); tw ? advTower() : advStage(); return true; }
+    if (id === "btw"){ stopBattle(); advTower(); return true; }
+    if (/^tws\d+$/.test(id)){ startTower(+id.slice(3), null); return true; }
+    if (id === "twn" && B && B.tw){ startTower(B.tw + 1, B.party); return true; }
+    if (id === "bac"){ advAch(); return true; }
+    if (id === "acall"){ claimAch(null); advAch(true); return true; }
+    if (id.indexOf("ac_") === 0){ claimAch(id.slice(3)); advAch(true); return true; }
     if (id === "achs"){ advChapters(); return true; }
     if (/^cb\d$/.test(id)){ claimCh(+id[2]); return true; }
     if (/^ch\d$/.test(id)){ CUR_CH = +id[2]; advStage(); return true; }
@@ -938,6 +973,82 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (/^st\d+$/.test(id)){ const n = +id.slice(2); const st = STAGES[n - 1]; if (st.s <= S.cl[st.c - 1] + 1) st.ev ? startEvent(n) : startBattle(n); return true; }
     if (id === "retry"){ startBattle(B.n); return true; }
     return false;
+  }
+
+  // ===== ミッション／実績／無限の塔 =====
+  const msDesc = st => st.ev ? ["ノーミスでクリア", "PERFECT率80%以上でクリア"] : ["全員生存でクリア", "残りHP50%以上でクリア"];
+  function awardMs(n, conds){   // 各ステージ2つのミッション。初めて達成した時だけPT獲得
+    const d = msDesc(STAGES[n - 1]), r = {got:0, names:[]};
+    conds.forEach((ok, i) => { if (ok && !(S.ms[n - 1] & (1 << i))){ S.ms[n - 1] |= 1 << i; r.got += Math.round(200 * ru(n)); r.names.push(d[i]); } });
+    S.pt += r.got; return r;
+  }
+  const msTxt = r => r && r.names.length ? '<br>🎯 ミッション達成：' + r.names.join(" ／ ") + '　+' + r.got + ' PT' : "";
+  const msLine = idx => { const m = S.ms[idx], d = msDesc(STAGES[idx]); return '<br><span class="dim" style="color:#f5ff3b">🎯 ' + (m & 1 ? "★" : "☆") + d[0] + ' ／ ' + (m & 2 ? "★" : "☆") + d[1] + '</span>'; };
+  const msCount = () => S.ms.reduce((a, v) => a + (v & 1) + ((v >> 1) & 1), 0);
+
+  const rarN = r => () => CH.filter((c, i) => c[1] === r && S.inv[i]).length;
+  const rarAll = r => CH.filter(c => c[1] === r).length;
+  const ACH = [   // [id, 名前, 説明, 現在値, 目標, 報酬PT]
+    ["fc1", "フルコンボ初達成", "音ゲーでフルコンボを達成", () => S.st.fc, 1, 500],
+    ["fc10", "フルコンボ職人", "フルコンボを10回達成", () => S.st.fc, 10, 3000],
+    ["fc30", "フルコンボマスター", "フルコンボを30回達成", () => S.st.fc, 30, 10000],
+    ["ok10", "リズム入門", "音ゲーを10回クリア", () => S.st.ok, 10, 500],
+    ["ok50", "リズムの達人", "音ゲーを50回クリア", () => S.st.ok, 50, 3000],
+    ["mc100", "100コンボ", "1回のプレイで100コンボ", () => S.st.mc, 100, 1000],
+    ["mc300", "300コンボ", "1回のプレイで300コンボ", () => S.st.mc, 300, 5000],
+    ["g10", "ガチャ初心者", "ガチャを累計10回引く", () => S.st.g, 10, 300],
+    ["g100", "ガチャ常連", "ガチャを累計100回引く", () => S.st.g, 100, 2000],
+    ["g500", "ガチャ達人", "ガチャを累計500回引く", () => S.st.g, 500, 10000],
+    ["col20", "コレクター", "20種類を集める", () => Object.keys(S.inv).length, 20, 1000],
+    ["col40", "大コレクター", "40種類を集める", () => Object.keys(S.inv).length, 40, 3000],
+    ["colall", "コンプリート", "全種類を集める", () => Object.keys(S.inv).length, CH.length, 20000],
+    ["ssr", "SSRコンプ", "SSRを全種類集める", rarN("SSR"), rarAll("SSR"), 5000],
+    ["ul", "伝説の到来", "ULを手に入れる", rarN("UL"), 1, 10000],
+    ["mx1", "限界突破", "最大まで強化したキャラが1体", () => CH.filter((c, i) => S.inv[i] && lvOf(i) >= maxE(i)).length, 1, 3000],
+    ["mx10", "育成の鬼", "最大まで強化したキャラが10体", () => CH.filter((c, i) => S.inv[i] && lvOf(i) >= maxE(i)).length, 10, 10000],
+    ["ch1", "冒険の始まり", "章を1つ制覇（STAGE10クリア）", () => S.cl.filter(v => v >= 10).length, 1, 1000],
+    ["ch5", "半分制覇", "章を5つ制覇", () => S.cl.filter(v => v >= 10).length, 5, 5000],
+    ["ch10", "全章制覇", "章を10すべて制覇", () => S.cl.filter(v => v >= 10).length, NCH, 20000],
+    ["ms20", "ミッション見習い", "ミッションを20個達成", msCount, 20, 2000],
+    ["ms100", "ミッション上級者", "ミッションを100個達成", msCount, 100, 8000],
+    ["ms200", "ミッション完全制覇", "ミッションを全200個達成", msCount, NST * 2, 20000],
+    ["tw10", "塔の挑戦者", "無限の塔で10階に到達", () => S.tw, 10, 2000],
+    ["tw30", "塔の踏破者", "無限の塔で30階に到達", () => S.tw, 30, 5000],
+    ["tw50", "塔の覇者", "無限の塔で50階に到達", () => S.tw, 50, 10000],
+    ["tw100", "天を衝く者", "無限の塔で100階に到達", () => S.tw, 100, 30000],
+  ];
+  const normAc = o => { const r = {}; ACH.forEach(a => { if (o && o[a[0]]) r[a[0]] = 1; }); return r; };
+  const achList = () => ACH.map(a => { const cur = a[3](), done = cur >= a[4]; return {id:a[0], name:a[1], desc:a[2], cur:Math.min(cur, a[4]), goal:a[4], pt:a[5], done, got:!!S.ac[a[0]]}; });
+  const achReady = () => achList().filter(a => a.done && !a.got);
+  function claimAch(id){
+    const L = achReady().filter(a => !id || a.id === id); let t = 0;
+    L.forEach(a => { S.ac[a.id] = 1; t += a.pt; });
+    if (t){ S.pt += t; save(); sfxLv(true); }
+  }
+  function advAch(keep){
+    menuBgm(true); battleBgm(false);
+    const L = achList(), rd = L.filter(a => a.done && !a.got), tot = rd.reduce((a, x) => a + x.pt, 0), got = L.filter(a => a.got).length;
+    const rank = a => a.done && !a.got ? 0 : a.got ? 2 : 1;
+    const sorted = L.map((a, k) => [a, k]).sort((p, q) => rank(p[0]) - rank(q[0]) || p[1] - q[1]).map(p => p[0]);
+    aView('<div id="t2" style="font-size:26px">ACHIEVEMENTS</div><div class="pt">' + S.pt + ' PT</div><div class="dim">達成 ' + got + ' / ' + L.length + '　ミッション ' + msCount() + ' / ' + NST * 2 + '</div>' +
+      '<button class="b"' + (rd.length ? "" : " disabled") + ' id="acall">' + (rd.length ? "まとめて受け取る（" + rd.length + "件 +" + tot + " PT）" : "受け取れる実績はありません") + '</button>' +
+      sorted.map(a => '<div class="ac' + (a.got ? " g" : a.done ? " d" : "") + '"><b>' + a.name + (a.got ? " ✔" : "") + '</b>　<span class="dim">+' + a.pt + ' PT</span><br>' + a.desc +
+        '<div class="hb"><i style="width:' + a.cur / a.goal * 100 + '%;background:' + (a.done ? "#f5ff3b" : "#00f0ff") + '"></i></div><span class="dim">' + a.cur + ' / ' + a.goal + '</span>' +
+        (a.done && !a.got ? '<br><button class="b s" id="ac_' + a.id + '" style="margin-top:6px">受け取る</button>' : "") + '</div>').join("") +
+      '<button class="b s" id="bk">← HOME</button>', keep);
+  }
+  function advTower(){
+    menuBgm(true); battleBgm(false);
+    S.party = S.party.filter(i => S.inv[i]); if (S.party.length < 4) return advParty();
+    const starts = [1]; for (let f = 10; f <= S.tw + 1; f += 10) starts.push(f);
+    aView('<div id="t2" style="font-size:24px">♾ 無限の塔</div><div class="dim">上るほど敵が強くなります。HPは次の階へ持ち越し（生存者は30%回復）、全滅で終了。10階ごとにボス。初到達の階は報酬3倍。</div><div class="pt">最高 ' + S.tw + ' F</div>' +
+      starts.map(f => '<button class="b" id="tws' + f + '">' + f + 'F から挑戦</button>').join("") +
+      '<div class="dim">10階ごとの開始位置は、その手前の階まで到達すると解放されます</div><button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
+  }
+  function twFoot(fs){
+    if (fs === "r") return '<button class="b s" id="ast">撤退する</button>';
+    if (fs === "w") return '<div class="pt">CLEAR</div><div class="dim" style="font-size:14px;color:#f5ff3b">' + B.tw + 'F 突破　+' + B.rw + ' PT' + (B.first ? "（初到達ボーナス込み）" : "") + '</div><button class="b" id="twn">次の階へ（' + (B.tw + 1) + 'F）</button><button class="b s" id="btw">撤退して塔の入口へ</button>';
+    return '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><div class="dim" style="font-size:14px;color:#f5ff3b">' + B.tw + 'F で全滅　最高到達 ' + S.tw + 'F</div><button class="b" id="btw">塔の入口へ</button><button class="b s" id="apt">編成を変える</button>';
   }
 
   // ===== ホームに追加／共有 =====

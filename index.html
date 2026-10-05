@@ -135,9 +135,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const MAX_HP = 10;   // 全難易度共通
   const LEVELS = {
     easy:   {name:"EASY", keys:3, bpm:160, fall:1500, goal:150,  irr:[1],                                  chord:0},
-    normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:300, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
-    hard:   {name:"HARD", keys:5, bpm:220, fall:600,  goal:450, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
-    veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:600,  goal:450, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
+    normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:200, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
+    hard:   {name:"HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
+    veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
   };
   // index.html と同じフォルダに置く。ゲーム開始のたびにランダムで1曲選ばれる
   const BGM_FILES = Array.from({length: 15}, (_, k) => "Music" + (k + 1) + ".mp3");

@@ -168,7 +168,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
 
   const $ = id => document.getElementById(id);
-  const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false, desynchronized:true}), ov = $("overlay");
+  const cv = $("cv"), ctx = cv.getContext("2d", {alpha:false}), ov = $("overlay");
   const title = $("title"), sub = $("sub"), startBtn = $("start"), lvBox = $("lv"), sa = $("sa");
   const markLevel = () => [...lvBox.children].forEach(b => b.classList.toggle("on", b.dataset.l === level));
   markLevel();
@@ -180,12 +180,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   let notes = [], startT = 0, lastLane = -1, sameRun = 0, nextT = 0;
   const flashes = [];
   let judge = {text:"", color:"#fff", at:0};
+  let shakeAt = -1e9;   // ミス時の画面揺れ（canvas内で描画。CSSでcanvasごと動かすと端が黒く見えて点滅する）
   let L = {};
 
   function layout(){
     const dpr = window.devicePixelRatio || 1;
     const W = window.innerWidth, H = window.innerHeight;
-    cv.width = W * dpr; cv.height = H * dpr;
+    const nw = Math.round(W * dpr), nh = Math.round(H * dpr);
+    if (cv.width !== nw || cv.height !== nh){ cv.width = nw; cv.height = nh; }   // 同じサイズなら再設定しない（再設定すると一瞬真っ黒になる）
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cs = getComputedStyle(sa);
     const st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0;
@@ -254,7 +256,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     hp--; combo = 0; cnt.m++;
     if (isNote) resolved++;
     setJudge(text, "#ff3b5c");
-    cv.classList.remove("shake"); void cv.offsetWidth; cv.classList.add("shake");
+    shakeAt = performance.now();
     if (hp <= 0) finish(false);
   }
 
@@ -322,7 +324,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   function draw(g, pn){
     const {W, H, fieldW, fx, laneW, topY, judgeY, bottom, st} = L;
-    ctx.clearRect(0, 0, W, H);
     ctx.shadowBlur = 0;
 
     // 背景：流れるグリッド
@@ -333,6 +334,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const off = (pn / 25) % 40;
     for (let y = -40 + off; y < H; y += 40){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     for (let x = fx % 40; x < W; x += 40){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+
+    const sk = pn - shakeAt; ctx.save();
+    if (sk < 250) ctx.translate(Math.sin(sk / 22) * 6 * (1 - sk / 250), 0);
 
     // フィールド
     const fh = bottom - topY;
@@ -403,6 +407,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       if (combo >= 2){ ctx.font = "700 18px " + FONT; ctx.fillText(combo + " COMBO", W / 2, cy + 30); }
       ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     }
+    ctx.restore();
   }
 
   function frame(){
@@ -428,7 +433,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   startBtn.addEventListener("click", () => { lvBox.hidden = true; begin(); });
 
   // ===== メイン／ガチャ =====
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build3";   // 画面に表示される版番号（キャッシュ確認用）
+  const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c);   // 章の数
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build4";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -444,10 +450,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   SHOW.forEach((k, r) => { NUM[k] = r + 1; CH[k][0] = CN[r + 1] || "No." + String(r + 1).padStart(3, "0"); });
   const MAXE = {N:99, R:70, SR:50, SSR:30, UL:5};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
-  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:[0,0,0,0,0]};
+  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0)};
   let _sv = {}; try { _sv = JSON.parse(localStorage.getItem(SK) || "{}") || {}; Object.assign(S, _sv); } catch(e){}
-  if (!Array.isArray(_sv.cl)) S.cl = [0, 1, 2, 3, 4].map(c => Math.max(0, Math.min(10, (_sv.adv | 0) - c * 10)));   // 旧セーブ(全章通しの進行)を章別に変換
-  S.cl = [0, 1, 2, 3, 4].map(c => Math.max(0, Math.min(10, S.cl[c] | 0))); delete S.adv;
+  if (!Array.isArray(_sv.cl)) S.cl = CHI.map(c => Math.max(0, Math.min(10, (_sv.adv | 0) - c * 10)));   // 旧セーブ(全章通しの進行)を章別に変換
+  S.cl = CHI.map(c => Math.max(0, Math.min(10, S.cl[c] | 0))); delete S.adv;
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
@@ -677,12 +683,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     else if (id === "ld"){ const m = importCode($("im").value); m === "OK" ? show("menu") : show("data", m); }
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
-    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:[0,0,0,0,0]}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
+    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
   $("toHome").addEventListener("click", () => { ov.hidden = true; if (EV){ EV = null; advStage(); } else show("menu"); });
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
   // 初期値（体力は他の10倍）と、強化1回あたりの伸び率（初期値×この割合が加算）。高レアほど初期値も伸びも大きく、強化回数は少ない
-  const BASE = {N:{hp:100, atk:10, def:10, mnd:10}, R:{hp:200, atk:20, def:20, mnd:20}, SR:{hp:400, atk:40, def:40, mnd:40}, SSR:{hp:800, atk:80, def:80, mnd:80}, UL:{hp:10000, atk:1000, def:1000, mnd:1000}};
+  const BASE = {N:{hp:115, atk:11.5, def:11.5, mnd:11.5}, R:{hp:230, atk:23, def:23, mnd:23}, SR:{hp:460, atk:46, def:46, mnd:46}, SSR:{hp:800, atk:80, def:80, mnd:80}, UL:{hp:8500, atk:850, def:850, mnd:850}};   // N/R/SRを約+15%、ULを約-15%
   const GROW = {N:.03, R:.05, SR:.08, SSR:.15, UL:.1};
   const lvOf = i => S.lv[i] || 0, spare = i => (S.inv[i] || 0) - 1 - lvOf(i);   // 余剰＝所持数−1−強化済み回数
   function stat(i, k){   // 初期値×キャラ個体差(0.8〜1.2)×(1＋伸び率×強化回数)
@@ -735,12 +741,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       const m = c.trim().split("."); if (m.length !== 3 || m[0] !== "OC1" || hs(m[1]) !== m[2]) return "コードが正しくありません";
       const d = JSON.parse(atob(m[1])), inv = {}, lv = {};
       for (let i = 0; i < CH.length; i++){ const n = Math.max(0, Math.min(999, (d.inv && d.inv[i]) | 0)); if (n){ inv[i] = n; lv[i] = Math.max(0, Math.min(maxE(i), n - 1, (d.lv && d.lv[i]) | 0)); } }
-      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? [0, 1, 2, 3, 4].map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : [0, 1, 2, 3, 4].map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
+      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
     } catch(e){ return "コードが正しくありません"; }
   }
   // ===== ADVENTURE（簡易コマンドバトル）=====
   const ADV_UNLOCK = 20;   // コレクションの種類数がこの数以上になると、メニューに出現
-  const CHAPTERS = ["第1章 電脳の入口", "第2章 ノイズの森", "第3章 ジャンク街", "第4章 回路の谷", "第5章 深層ネットワーク"];
+  const CHAPTERS = ["第1章 電脳の入口", "第2章 ノイズの森", "第3章 ジャンク街", "第4章 回路の谷", "第5章 深層ネットワーク", "第6章 クロックの塔", "第7章 暗号の海", "第8章 量子の庭", "第9章 カーネルの深淵", "第10章 オーバークロック"];
   const ST_NAMES = ["入口", "外縁部", "第一層", "通路", "中継点", "機関室", "深部", "回廊", "最終防衛線", "最奥"];
   const P10 = [1, 1.5, 2.3, 3.4, 5.1, 7.7, 11.6, 17.5, 26.3, 39.6];   // 章内ステージ1〜10の敵の強さ。後半ほど急に上がる（章ごとの差は+15%ずつ）
   const EVLV = {3:"normal", 6:"hard", 10:"veryhard"};   // イベントバトルになるステージと、音ゲー難易度

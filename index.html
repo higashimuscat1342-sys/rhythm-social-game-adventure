@@ -442,16 +442,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // ===== メイン／ガチャ =====
   const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c), NST = NCH * 10;   // 章の数／全ステージ数
   const normSt = o => { const r = {}; ["pl", "ok", "fc", "g", "mc"].forEach(k => { r[k] = Math.max(0, ((o && o[k]) | 0)); }); return r; };   // 累計記録：プレイ数・クリア数・フルコンボ数・ガチャ回数・最大コンボ
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build8";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build9";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
   const RC = {N:"#7f93a8", R:"#00f0ff", SR:"#ff2bd6", SSR:"#f5ff3b", UL:"#ffffff"};
-  // 全64体（001a〜033a.jpg ＋ n001〜n015.jpg ＋ r001〜r008.jpg ＋ sr001〜sr008.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
+  // 全65体（001a〜033a.jpg ＋ n001〜n015.jpg ＋ r001〜r008.jpg ＋ sr001〜sr008.jpg ＋ ssr001.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
   const CN = {};
   const CH = [];
-  // 内部番号(セーブ用)は既存33体の後ろにN 15枚・R 8枚・SR 8枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
-  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",8]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
+  // 内部番号(セーブ用)は既存33体の後ろにN 15枚・R 8枚・SR 8枚・SSR 1枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
+  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",8],["SSR",1]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
   const RANKS = ["N", "R", "SR", "SSR", "UL"];
   const SHOW = CH.map((c, k) => k).sort((a, b) => RANKS.indexOf(CH[a][1]) - RANKS.indexOf(CH[b][1]) || a - b);   // コレクションの表示順（N→R→SR→SSR→UL）
   const NUM = [];   // 表示番号（レアリティ順の通し番号。高レアほど後ろ）。名前はここで確定
@@ -469,7 +469,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
-  const imgOf = i => i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : i < 48 ? "n" + String(i - 32).padStart(3, "0") + ".jpg" : i < 56 ? "r" + String(i - 47).padStart(3, "0") + ".jpg" : "sr" + String(i - 55).padStart(3, "0") + ".jpg";
+  const imgOf = i => i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : i < 48 ? "n" + String(i - 32).padStart(3, "0") + ".jpg" : i < 56 ? "r" + String(i - 47).padStart(3, "0") + ".jpg" : i < 64 ? "sr" + String(i - 55).padStart(3, "0") + ".jpg" : "ssr" + String(i - 63).padStart(3, "0") + ".jpg";
   const card = (i, ex, d, n) => { const [nm, r] = CH[i];
     return '<div class="c ' + r + ' ' + (ex || "") + '" data-i="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + ';animation-delay:' + (d || 0) + 'ms"><div class="im"><span>' + NUM[i] + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + '</b>' + nm + (n ? '<i>' + n + '</i>' : '') + '</div>';
   };
@@ -829,6 +829,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
 
   const TICK = 200, WAVES = 10, AUTO_HP = .6;
+  const TW_COST = 10000;   // 無限の塔に入るコスト（PT）
   const TW_WAVES = 3, TW_PT = f => Math.round(100 * (1 + .12 * f) * (f % 10 === 0 ? 2 : 1));   // 無限の塔：1階あたりのウェーブ数／クリア報酬
   const nWaves = () => B && B.tw ? TW_WAVES : WAVES;
   const stOf = b => b.tw ? {c:(b.tw - 1) % 10 + 1, s:b.tw, e:3, boss:b.tw % 10 === 0 ? 1 : 0, p:1.2 * Math.pow(1.07, b.tw - 1)} : STAGES[b.n - 1];   // 塔は1階ごとに敵が約7%ずつ強くなる（10階ごとにボス）   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率
@@ -961,7 +962,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (id === "badv"){ stopBattle(); S.party = S.party.filter(i => S.inv[i]); S.party.length < 4 ? advParty() : advChapters(); return true; }
     if (id === "ast"){ const tw = B && B.tw; stopBattle(); tw ? advTower() : advStage(); return true; }
     if (id === "btw"){ stopBattle(); advTower(); return true; }
-    if (/^tws\d+$/.test(id)){ startTower(+id.slice(3), null); return true; }
+    if (/^tws\d+$/.test(id)){ if (S.pt < TW_COST) return true; S.pt -= TW_COST; save(); startTower(+id.slice(3), null); return true; }
     if (id === "twn" && B && B.tw){ startTower(B.tw + 1, B.party); return true; }
     if (id === "bac"){ advAch(); return true; }
     if (id === "acall"){ claimAch(null); advAch(true); return true; }
@@ -1042,7 +1043,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     S.party = S.party.filter(i => S.inv[i]); if (S.party.length < 4) return advParty();
     const starts = [1]; for (let f = 10; f <= S.tw + 1; f += 10) starts.push(f);
     aView('<div id="t2" style="font-size:24px">♾ 無限の塔</div><div class="dim">上るほど敵が強くなります。HPは次の階へ持ち越し（生存者は30%回復）、全滅で終了。10階ごとにボス。初到達の階は報酬3倍。</div><div class="pt">最高 ' + S.tw + ' F</div>' +
-      starts.map(f => '<button class="b" id="tws' + f + '">' + f + 'F から挑戦</button>').join("") +
+      starts.map(f => '<button class="b" id="tws' + f + '"' + (S.pt < TW_COST ? " disabled" : "") + '>' + f + 'F から挑戦（' + TW_COST + ' PT）</button>').join("") +
+      '<div class="dim" style="color:#f5ff3b">入場コスト ' + TW_COST + ' PT（所持 ' + S.pt + ' PT）' + (S.pt < TW_COST ? "　PTが足りません" : "") + '。次の階へ進む間は不要です</div>' +
       '<div class="dim">10階ごとの開始位置は、その手前の階まで到達すると解放されます</div><button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
   }
   function twFoot(fs){

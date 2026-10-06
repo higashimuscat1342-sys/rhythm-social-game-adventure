@@ -107,7 +107,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
 .cn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:46px;height:46px;padding:0;font-size:22px;border:1px solid var(--cyan);background:rgba(4,6,14,.72);color:#fff;z-index:5;box-shadow:0 0 10px rgba(0,240,255,.4)}
-.cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}.cn.l1{right:auto;left:12px;top:calc(env(safe-area-inset-top,0px) + 10px);width:auto;min-width:46px;padding:0 8px;font-size:12px;font-weight:700}.cn.s3{top:calc(env(safe-area-inset-top,0px) + 122px)}
+.cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}.cn.l1{right:auto;left:12px;top:calc(env(safe-area-inset-top,0px) + 10px);width:auto;min-width:46px;padding:0 8px;font-size:12px;font-weight:700}.cn.s3{top:calc(env(safe-area-inset-top,0px) + 122px)}.cn.s4{top:calc(env(safe-area-inset-top,0px) + 178px)}
 .cn i{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--mag);font:700 11px/18px sans-serif;font-style:normal}
 .ac{width:100%;border:1px solid #2a5566;padding:10px;text-align:left;font-size:13px;line-height:1.6;background:rgba(8,14,30,.95)}.ac.d{border-color:#f5ff3b}.ac.g{opacity:.45}
 </style>
@@ -468,7 +468,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const normSt = o => { const r = {}; ["pl", "ok", "fc", "g", "mc"].forEach(k => { r[k] = Math.max(0, ((o && o[k]) | 0)); }); return r; };   // 累計記録：プレイ数・クリア数・フルコンボ数・ガチャ回数・最大コンボ
   // 覚醒・塔の加護・ショップ・売却の設定
   const AW_MAX = 5, AW_RATE = .1, AW_COST = a => 100000 * (a + 1);   // 覚醒：★5まで、★1つで全ステータス+10%、費用は10万→20万→…
-  const TB_MAX = 10, TB_RATE = .04, TB_COST = l => 100000 + 50000 * l;   // 塔の加護：Lv10まで、1Lvで塔の中の全ステータス+4%
+  const TB_MAX = 10, TB_RATE = .3, TB_COST = l => 100000 + 50000 * l;   // 塔の加護：Lv10まで、1Lvで塔の中の全ステータス+30%
   const SELL = {N:5, R:15, SR:50, SSR:500, UL:3000};   // 余剰カードの売却額（ガチャ1回100PTの期待売却額は約30PT＝稼ぎ目的の周回にはならない）
   const EX_COST = {N:100, R:500, SR:1000, SSR:10000}, SK_COST = 10000;   // 確定交換所／見た目の価格（ULは自力入手のみ。交換不可）
   const SKN = {note:["bar", "round", "diamond", "neon"], bg:["def", "sunset", "forest", "royal", "mono"], line:["def", "gold", "white", "cyan", "green"]};
@@ -479,7 +479,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
       const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
     return r; };
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build20";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build21";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -705,7 +705,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button><button class="b" id="bdl">📅 DAILY' + (dmReady() ? ' ●' : '') + '</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '</div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button>' + (shopOpen() ? '<button class="cn s2" id="bshop">🛒</button>' : '') + '<button class="cn ' + (shopOpen() ? 's3' : 's2') + '" id="bsh">📤</button><button class="cn l1" id="bdbg">+10万PT</button>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '</div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button>' + '<button class="cn s2" id="bdl">📅' + (dmReady() ? '<i>' + dmReady() + '</i>' : '') + '</button>' + (shopOpen() ? '<button class="cn s3" id="bshop">🛒</button>' : '') + '<button class="cn ' + (shopOpen() ? 's4' : 's3') + '" id="bsh">📤</button><button class="cn l1" id="bdbg">+10万PT</button>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +

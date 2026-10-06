@@ -107,6 +107,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
 .cn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:46px;height:46px;padding:0;font-size:22px;border:1px solid var(--cyan);background:rgba(4,6,14,.72);color:#fff;z-index:5;box-shadow:0 0 10px rgba(0,240,255,.4)}
+.cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}
 .cn i{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--mag);font:700 11px/18px sans-serif;font-style:normal}
 .ac{width:100%;border:1px solid #2a5566;padding:10px;text-align:left;font-size:13px;line-height:1.6;background:rgba(8,14,30,.95)}.ac.d{border-color:#f5ff3b}.ac.g{opacity:.45}
 </style>
@@ -329,15 +330,34 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     checkClear();
   }
 
+  // ノーツの見た目（ショップで購入）
+  function rrPath(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath(); }
+  function dmPath(x, y, lw, nh, e){ const k = lw * .14; ctx.beginPath(); ctx.moveTo(x - e, y); ctx.lineTo(x + k, y - nh / 2 - e); ctx.lineTo(x + lw - k, y - nh / 2 - e); ctx.lineTo(x + lw + e, y); ctx.lineTo(x + lw - k, y + nh / 2 + e); ctx.lineTo(x + k, y + nh / 2 + e); ctx.closePath(); }
+  function drawNoteSk(shape, x, y, lw, nh, c){
+    if (shape === "round"){ const r = nh / 2;
+      ctx.globalAlpha = .28; ctx.fillStyle = c; rrPath(x - 3, y - nh / 2 - 3, lw + 6, nh + 6, r + 3); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = c; rrPath(x, y - nh / 2, lw, nh, r); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillRect(x + r, y - 2, lw - 2 * r, 4);
+    } else if (shape === "diamond"){
+      ctx.globalAlpha = .28; ctx.fillStyle = c; dmPath(x, y, lw, nh, 3); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = c; dmPath(x, y, lw, nh, 0); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillRect(x + lw * .14, y - 2, lw * .72, 4);
+    } else {   // neon：中空の枠
+      ctx.globalAlpha = .22; ctx.fillStyle = c; ctx.fillRect(x, y - nh / 2, lw, nh); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.strokeRect(x + 1.5, y - nh / 2 + 1.5, lw - 3, nh - 3);
+      ctx.fillStyle = "#fff"; ctx.fillRect(x + lw * .2, y - 1.5, lw * .6, 3);
+    }
+  }
   function draw(g, pn){
     const {W, H, fieldW, fx, laneW, topY, judgeY, bottom, st} = L;
     ctx.shadowBlur = 0;
 
     // 背景：流れるグリッド
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, "#04060e"); bg.addColorStop(1, "#140828");
+    const th = SK_BG[S.sk.eq.bg] || SK_BG.def, noteSk = S.sk.eq.note, lineCol = SK_LINE[S.sk.eq.line] || SK_LINE.def;
+    bg.addColorStop(0, th[0]); bg.addColorStop(1, th[1]);
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = "rgba(0,240,255,.10)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = th[2]; ctx.lineWidth = 1;
     const off = (pn / 25) % 40;
     for (let y = -40 + off; y < H; y += 40){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     for (let x = fx % 40; x < W; x += 40){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
@@ -366,7 +386,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     }
 
     // 判定ライン
-    ctx.strokeStyle = "#ff2bd6"; ctx.lineWidth = 3; ctx.shadowColor = "#ff2bd6"; ctx.shadowBlur = 14;
+    ctx.strokeStyle = lineCol; ctx.lineWidth = 3; ctx.shadowColor = lineCol; ctx.shadowBlur = 14;
     ctx.beginPath(); ctx.moveTo(fx, judgeY); ctx.lineTo(fx + fieldW, judgeY); ctx.stroke();
     ctx.shadowBlur = 0;
 
@@ -387,6 +407,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       const p = 1 - (n.t - g) / FALL;
       const y = topY + (judgeY - topY) * p;
       const lw = laneW * .84, x = fx + n.lane * laneW + laneW * .08, c = USE[n.lane].color;
+      if (noteSk !== "bar"){ drawNoteSk(noteSk, x, y, lw, nh, c); continue; }
       ctx.globalAlpha = .28; ctx.fillStyle = c; ctx.fillRect(x - 3, y - nh / 2 - 3, lw + 6, nh + 6); ctx.globalAlpha = 1;   // 発光は軽い重ね描きで代用（shadowBlurは重い）
       ctx.fillStyle = c; ctx.fillRect(x, y - nh / 2, lw, nh);
       ctx.fillStyle = "#fff"; ctx.fillRect(x, y - 2, lw, 4);
@@ -442,7 +463,20 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // ===== メイン／ガチャ =====
   const NCH = 10, CHI = Array.from({length:NCH}, (_, c) => c), NST = NCH * 10;   // 章の数／全ステージ数
   const normSt = o => { const r = {}; ["pl", "ok", "fc", "g", "mc"].forEach(k => { r[k] = Math.max(0, ((o && o[k]) | 0)); }); return r; };   // 累計記録：プレイ数・クリア数・フルコンボ数・ガチャ回数・最大コンボ
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-05 build12";   // 画面に表示される版番号（キャッシュ確認用）
+  // 覚醒・塔の加護・ショップ・売却の設定
+  const AW_MAX = 5, AW_RATE = .1, AW_COST = a => 100000 * (a + 1);   // 覚醒：★5まで、★1つで全ステータス+10%、費用は10万→20万→…
+  const TB_MAX = 10, TB_RATE = .04, TB_COST = l => 100000 + 50000 * l;   // 塔の加護：Lv10まで、1Lvで塔の中の全ステータス+4%
+  const SELL = {N:5, R:15, SR:50, SSR:500, UL:3000};   // 余剰カードの売却額（ガチャ1回100PTの期待売却額は約30PT＝稼ぎ目的の周回にはならない）
+  const EX_COST = {SSR:100000, UL:1000000}, SK_COST = 100000;   // 確定交換所／見た目の価格
+  const SKN = {note:["bar", "round", "diamond", "neon"], bg:["def", "sunset", "forest", "royal", "mono"], line:["def", "gold", "white", "cyan", "green"]};
+  const SK_BG = {def:["#04060e", "#140828", "rgba(0,240,255,.10)"], sunset:["#1c0610", "#3d1208", "rgba(255,140,60,.13)"], forest:["#02120c", "#05281a", "rgba(57,255,136,.10)"], royal:["#06031a", "#1d0a45", "rgba(255,210,59,.10)"], mono:["#000000", "#1a1a1a", "rgba(255,255,255,.08)"]};
+  const SK_LINE = {def:"#ff2bd6", gold:"#ffd23b", white:"#ffffff", cyan:"#00f0ff", green:"#39ff88"};
+  const normAw = o => { const r = {}; if (o && typeof o === "object") for (const k in o){ const n = Math.max(0, Math.min(AW_MAX, o[k] | 0)); if (n && /^\d+$/.test(k)) r[k] = n; } return r; };
+  const normSk = o => { const r = {own:{}, eq:{}};
+    Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
+      const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
+    return r; };
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build14";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -458,13 +492,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   SHOW.forEach((k, r) => { NUM[k] = r + 1; CH[k][0] = CN[r + 1] || "No." + String(r + 1).padStart(3, "0"); });
   const MAXE = {N:99, R:70, SR:50, SSR:30, UL:5};   // レアリティ別の最大強化回数（初期Lv1 → 最大Lv＝回数＋1）
   const maxE = i => MAXE[CH[i][1]];
-  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0)};
+  let S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0), aw:{}, tl:0, sk:normSk(null)};
   let _sv = {}; try { _sv = JSON.parse(localStorage.getItem(SK) || "{}") || {}; Object.assign(S, _sv); } catch(e){}
   if (!Array.isArray(_sv.cl)) S.cl = CHI.map(c => Math.max(0, Math.min(10, (_sv.adv | 0) - c * 10)));   // 旧セーブ(全章通しの進行)を章別に変換
   S.cl = CHI.map(c => Math.max(0, Math.min(10, S.cl[c] | 0))); delete S.adv;
   S.cb = CHI.map(c => Array.isArray(S.cb) && S.cb[c] ? 1 : 0);   // 章クリア特典の受け取り済みフラグ
   S.tw = Math.max(0, S.tw | 0); S.st = normSt(S.st);   // 無限の塔の最高階／累計記録
   S.ac = S.ac && typeof S.ac === "object" && !Array.isArray(S.ac) ? S.ac : {};   // 受け取り済みの実績
+  S.aw = normAw(S.aw); S.tl = Math.max(0, Math.min(TB_MAX, S.tl | 0)); S.sk = normSk(S.sk);   // 覚醒／塔の加護／見た目
   S.ms = Array.from({length:NST}, (_, i) => (Array.isArray(S.ms) ? S.ms[i] | 0 : 0) & 3);   // ステージ別ミッション達成（bit0, bit1）
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
@@ -665,7 +700,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button><button class="cn s2" id="bshop">🛒</button>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +
@@ -677,8 +712,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       '<div class="dim">1回 ' + COST + 'PT ・ 10連は最後にSR以上確定 ・ 50回でSSR天井（あと' + (49 - S.pity) + '回）<br>UL 0.1% / SSR 2.9% / SR 12% / R 30% / N 55%</div>' +
       '<div class="r2"><button class="b" id="p1"' + (S.pt < COST ? " disabled" : "") + '>1回</button><button class="b" id="p10"' + (S.pt < COST * 10 ? " disabled" : "") + '>10連</button></div>' +
       '<div class="g">' + (res ? res.map((x, k) => card(x[0], "", k * 120, x[1] ? "NEW" : "")).join("") : "") + '</div><button class="b s" id="bk">← HOME</button>';
-    else h = '<div id="t2" style="font-size:28px">COLLECTION</div><div class="dim">' + own + ' / ' + CH.length + '</div><div class="g">' +
-      SHOW.map(i => S.inv[i] ? card(i, "zoomable", 0, "Lv" + (lvOf(i) + 1) + (spare(i) > 0 ? "↑" : "")) : '<div class="c no" style="border-color:#2a5566;color:#2a5566"><div class="im"><span style="opacity:1">？</span></div><b>?</b>???</div>').join("") +
+    else h = '<div id="t2" style="font-size:28px">COLLECTION</div><div class="dim">' + own + ' / ' + CH.length + '</div>' + sellAllBtn() + '<div class="g">' +
+      SHOW.map(i => S.inv[i] ? card(i, "zoomable", 0, "Lv" + (lvOf(i) + 1) + (spare(i) > 0 ? "↑" : "") + (awOf(i) ? "★" + awOf(i) : "")) : '<div class="c no" style="border-color:#2a5566;color:#2a5566"><div class="im"><span style="opacity:1">？</span></div><b>?</b>???</div>').join("") +
       '</div><button class="b s" id="bk">← HOME</button>';
     hm.innerHTML = '<div class="w' + (v === "menu" ? " m" : "") + '">' + h + '</div>';
   }
@@ -688,24 +723,32 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
   hm.addEventListener("click", e => { if (advClick(e)) return; const z = e.target.closest(".zoomable"); if (z){ zoom(+z.dataset.i); return; } const id = e.target.id;
     if (id === "bp") openPlay(); else if (id === "bg") show("gacha"); else if (id === "bc") show("col");
-    else if (id === "bk") show("menu"); else if (id === "bd") show("data"); else if (id === "ba") addHome(); else if (id === "bsh") shareApp();
+    else if (id === "bk") show("menu"); else if (id === "sellall") sellAll(); else if (id === "bd") show("data"); else if (id === "ba") addHome(); else if (id === "bsh") shareApp();
     else if (id === "cp"){ const t = $("ex"); let ok = false; t.select(); try { ok = document.execCommand("copy"); } catch(e){}
       if (!ok) try { navigator.clipboard.writeText(t.value); ok = true; } catch(e){}
       show("data", ok ? "コピーしました" : "コピーできません。コードを長押しで選択してコピーしてください"); }
     else if (id === "ld"){ const m = importCode($("im").value); m === "OK" ? show("menu") : show("data", m); }
     else if (id === "rs"){ rsConfirm = true; show("data"); }
     else if (id === "rsc"){ rsConfirm = false; show("data"); }
-    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
+    else if (id === "rsy"){ rsConfirm = false; S = {pt:0, inv:{}, lv:{}, pity:0, best:0, party:[], cl:CHI.map(() => 0), cb:CHI.map(() => 0), tw:0, st:normSt(null), ac:{}, ms:Array(NST).fill(0), aw:{}, tl:0, sk:normSk(null)}; save(); show("menu"); } else if (id === "p1") pull(1); else if (id === "p10") pull(10); });
   $("toHome").addEventListener("click", () => { ov.hidden = true; if (EV){ EV = null; advStage(); } else show("menu"); });
+  // ===== 余剰カードの売却（最大強化済みのキャラの余りだけ） =====
+  function sellInfo(){ let n = 0, t = 0; CH.forEach((c, i) => { if (S.inv[i] && lvOf(i) >= maxE(i) && spare(i) > 0){ n += spare(i); t += spare(i) * SELL[c[1]]; } }); return {n, t}; }
+  const sellAllBtn = () => { const f = sellInfo(); return '<button class="b s" id="sellall"' + (f.n ? "" : " disabled") + '>最大強化済みの余剰をまとめて売却（' + f.n + '枚 +' + f.t + ' PT）</button>'; };
+  function sellAll(){
+    const f = sellInfo(); if (!f.n) return;
+    CH.forEach((c, i) => { if (S.inv[i] && lvOf(i) >= maxE(i) && spare(i) > 0) S.inv[i] -= spare(i); });
+    S.pt += f.t; save(); sfxLv(false); show("col"); msgBox('余剰カード ' + f.n + '枚を売却しました<br><b style="color:#f5ff3b">+' + f.t + ' PT</b>（所持 ' + S.pt + ' PT）');
+  }
   // ===== 強化・ステータス =====
   const STATS = [["体力","hp"], ["攻撃力","atk"], ["防御力","def"], ["精神力","mnd"]];
   // 初期値（体力は他の10倍）と、強化1回あたりの伸び率（初期値×この割合が加算）。高レアほど初期値も伸びも大きく、強化回数は少ない
   const BASE = {N:{hp:220, atk:22, def:22, mnd:22}, R:{hp:480, atk:48, def:48, mnd:48}, SR:{hp:980, atk:98, def:98, mnd:98}, SSR:{hp:1950, atk:210, def:210, mnd:210}, UL:{hp:8500, atk:850, def:850, mnd:850}};   // SSRは最大強化(30回)でULの初期ステータスを超える値
   const GROW = {N:.03, R:.05, SR:.08, SSR:.15, UL:.2};
-  const lvOf = i => S.lv[i] || 0, spare = i => (S.inv[i] || 0) - 1 - lvOf(i);   // 余剰＝所持数−1−強化済み回数
+  const awOf = i => S.aw[i] | 0, lvOf = i => S.lv[i] || 0, spare = i => (S.inv[i] || 0) - 1 - lvOf(i);   // 余剰＝所持数−1−強化済み回数
   function stat(i, k){   // 初期値×キャラ個体差(0.8〜1.2)×(1＋伸び率×強化回数)
     const ki = STATS.findIndex(a => a[1] === k), v = .8 + .4 * ((Math.abs(Math.sin((i + 1) * 12.9898 + ki * 78.233) * 43758.5453)) % 1);
-    return Math.round(BASE[CH[i][1]][k] * v * (1 + GROW[CH[i][1]] * lvOf(i)));
+    return Math.round(BASE[CH[i][1]][k] * v * (1 + GROW[CH[i][1]] * lvOf(i)) * (1 + AW_RATE * awOf(i)));   // 覚醒★1つにつき+10%
   }
   const sfxUL = () => { if (!SFX) return; try {
     boom(0, 1.4); boom(.3, 1.1); boom(.6, .9); noise(0, 3, 12000, 300, .7); noise(.2, 3, 9000, 1500, .35);
@@ -730,30 +773,34 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   } catch(e){} };
   const zm = $("zoom"); let zi = 0, dirty = false;
   function zoom(i){
-    zi = i; const r = CH[i][1], lv = lvOf(i), sp = spare(i), mx = maxE(i);
+    zi = i; const r = CH[i][1], lv = lvOf(i), sp = spare(i), mx = maxE(i), aw = awOf(i), full = lv >= mx;
+    const awBlock = full ? '<div class="dim" style="color:#f5ff3b;font-size:14px">覚醒 ' + (aw ? "★".repeat(aw) : "なし") + '（全ステータス +' + Math.round(AW_RATE * aw * 100) + '%）　所持 ' + S.pt + ' PT</div><button class="b"' + (aw >= AW_MAX || S.pt < AW_COST(aw) ? " disabled" : "") + ' id="aw">' + (aw >= AW_MAX ? "覚醒 MAX" : "覚醒 ★" + (aw + 1) + "（" + AW_COST(aw) + " PT）") + '</button>' : '<div class="dim">最大まで強化すると覚醒できます</div>';
+    const sellBlock = full && sp > 0 ? '<button class="b s" id="sell">余剰 ' + sp + '枚を売却（+' + sp * SELL[r] + ' PT）</button>' : '';
     zm.innerHTML = '<div class="zw">' + card(i, "big zm", 0, "") +
-      '<div class="dim" style="color:#d8f6ff;font-size:14px">Lv ' + (lv + 1) + ' / ' + (mx + 1) + ' ・ 余剰 ' + Math.max(0, sp) + ' ・ 強化余地 ' + (mx - lv) + '</div>' +
+      '<div class="dim" style="color:#d8f6ff;font-size:14px">Lv ' + (lv + 1) + ' / ' + (mx + 1) + (aw ? ' ' + "★".repeat(aw) : '') + ' ・ 余剰 ' + Math.max(0, sp) + ' ・ 強化余地 ' + (mx - lv) + '</div>' +
       STATS.map(([nm, k]) => '<div class="st"><span>' + nm + '</span><div class="bar"><i style="width:' + Math.min(100, stat(i, k) / (BASE[r][k] * 1.2 * (1 + GROW[r] * mx)) * 100) + '%;background:' + RC[r] + '"></i></div><b>' + stat(i, k) + '</b></div>').join("") +
       '<button class="b" id="enh"' + (sp < 1 || lv >= mx ? " disabled" : "") + '>' + (lv >= mx ? "MAX" : "強化（余剰1消費 → Lv" + (lv + 2) + "）") + '</button>' +
-      '<button class="b s" id="enh10"' + (sp < 1 || lv >= mx ? " disabled" : "") + '>まとめて強化（最大10レベル）</button><button class="b s" id="zx">閉じる</button></div>';
+      '<button class="b s" id="enh10"' + (sp < 1 || lv >= mx ? " disabled" : "") + '>まとめて強化（最大10レベル）</button>' + awBlock + sellBlock + '<button class="b s" id="zx">閉じる</button></div>';
     zm.hidden = false;
   }
   zm.addEventListener("click", e => {
     const id = e.target.id;
     if (id === "enh" && spare(zi) >= 1 && lvOf(zi) < maxE(zi)){ S.lv[zi] = lvOf(zi) + 1; save(); dirty = true; sfxLv(false); zoom(zi); }
     else if (id === "enh10"){ const n = Math.min(10, spare(zi), maxE(zi) - lvOf(zi)); if (n > 0){ S.lv[zi] = lvOf(zi) + n; save(); dirty = true; sfxLv(n > 1); zoom(zi); } }
+    else if (id === "aw"){ const a = awOf(zi), c = AW_COST(a); if (lvOf(zi) >= maxE(zi) && a < AW_MAX && S.pt >= c){ S.pt -= c; S.aw[zi] = a + 1; save(); dirty = true; sfxLv(true); zoom(zi); } }
+    else if (id === "sell"){ const n = lvOf(zi) >= maxE(zi) ? Math.max(0, spare(zi)) : 0; if (n > 0){ S.inv[zi] -= n; S.pt += n * SELL[CH[zi][1]]; save(); dirty = true; sfxLv(false); zoom(zi); } }
     else if (id === "zx" || e.target === zm){ zm.hidden = true; if (dirty){ dirty = false; const t = hm.scrollTop; show("col"); hm.scrollTop = t; } }
   });
 
   // ===== 引き継ぎコード =====
   const hs = t => { let h = 7; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) >>> 0; return h.toString(36); };
-  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl, cb:S.cb, tw:S.tw, st:S.st, ac:S.ac, ms:S.ms})); return "OC1." + b + "." + hs(b); }
+  function exportCode(){ const b = btoa(JSON.stringify({pt:S.pt, inv:S.inv, lv:S.lv, pity:S.pity, best:S.best, party:S.party, cl:S.cl, cb:S.cb, tw:S.tw, st:S.st, ac:S.ac, ms:S.ms, aw:S.aw, tl:S.tl, sk:S.sk})); return "OC1." + b + "." + hs(b); }
   function importCode(c){
     try {
       const m = c.trim().split("."); if (m.length !== 3 || m[0] !== "OC1" || hs(m[1]) !== m[2]) return "コードが正しくありません";
       const d = JSON.parse(atob(m[1])), inv = {}, lv = {};
       for (let i = 0; i < CH.length; i++){ const n = Math.max(0, Math.min(999, (d.inv && d.inv[i]) | 0)); if (n){ inv[i] = n; lv[i] = Math.max(0, Math.min(maxE(i), n - 1, (d.lv && d.lv[i]) | 0)); } }
-      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, tw:Math.max(0, d.tw | 0), st:normSt(d.st), ac:normAc(d.ac), ms:Array.from({length:NST}, (_, i) => (Array.isArray(d.ms) ? d.ms[i] | 0 : 0) & 3), cb:(Array.isArray(d.cb) ? CHI.map(c => d.cb[c] ? 1 : 0) : CHI.map(() => 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
+      const party = (Array.isArray(d.party) ? d.party : []).map(Number).filter((v, k, a) => inv[v] && a.indexOf(v) === k).slice(0, 4); const cl = Array.isArray(d.cl) ? CHI.map(c => Math.max(0, Math.min(10, d.cl[c] | 0))) : CHI.map(c => Math.max(0, Math.min(10, (d.adv | 0) - c * 10))); S = {party, cl, aw:normAw(d.aw), tl:Math.max(0, Math.min(TB_MAX, d.tl | 0)), sk:normSk(d.sk), tw:Math.max(0, d.tw | 0), st:normSt(d.st), ac:normAc(d.ac), ms:Array.from({length:NST}, (_, i) => (Array.isArray(d.ms) ? d.ms[i] | 0 : 0) & 3), cb:(Array.isArray(d.cb) ? CHI.map(c => d.cb[c] ? 1 : 0) : CHI.map(() => 0)), pt:Math.max(0, d.pt | 0), inv, lv, pity:Math.max(0, d.pity | 0), best:Math.max(0, d.best | 0)}; save(); return "OK";
     } catch(e){ return "コードが正しくありません"; }
   }
   // ===== ADVENTURE（簡易コマンドバトル）=====
@@ -829,7 +876,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   }
 
   const TICK = 200, WAVES = 10, AUTO_HP = .6;
-  const TW_COST = 3000;   // 無限の塔に入るコスト（PT）
+  const TW_COST = 5000;   // 無限の塔に入るコスト（PT）
   const TW_WAVES = 3, TW_PT = f => Math.round(100 * (1 + .12 * f) * (f % 10 === 0 ? 2 : 1));   // 無限の塔：1階あたりのウェーブ数／クリア報酬
   const nWaves = () => B && B.tw ? TW_WAVES : WAVES;
   const stOf = b => b.tw ? {c:(b.tw - 1) % 10 + 1, s:b.tw, e:3, boss:b.tw % 10 === 0 ? 1 : 0, p:1.2 * Math.pow(1.06, b.tw - 1)} : STAGES[b.n - 1];   // 塔は1階ごとに敵が6%ずつ強くなる（上限階なし）（10階ごとにボス）   // 全自動バトルの1ティック(ms)／ウェーブ数／雑魚HP倍率
@@ -865,7 +912,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     stopBattle();
     B = {n:0, tw:f, t:0, kills:0, wave:0, log:[], over:false, fs:"",
       party:carry ? carry.map(p => ({...p, hp:p.hp > 0 ? Math.min(p.max, p.hp + Math.round(p.max * .3)) : 0, cd:2}))
-                  : S.party.map(i => ({id:i, hp:stat(i, "hp"), max:stat(i, "hp"), atk:stat(i, "atk"), def:stat(i, "def"), mnd:stat(i, "mnd"), cd:2}))};
+                  : S.party.map(i => { const tb = 1 + TB_RATE * S.tl, f = k => Math.round(stat(i, k) * tb); return {id:i, hp:f("hp"), max:f("hp"), atk:f("atk"), def:f("def"), mnd:f("mnd"), cd:2}; })};   // 塔の加護を反映
     menuBgm(false); battleBgm(true);
     spawnWave(); bBuild(); B.timer = setInterval(tick, TICK);
   }
@@ -965,6 +1012,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (/^tws\d+$/.test(id)){ if (S.pt < TW_COST) return true; S.pt -= TW_COST; save(); startTower(+id.slice(3), null); return true; }
     if (id === "twn" && B && B.tw){ startTower(B.tw + 1, B.party); return true; }
     if (id === "bac"){ advAch(); return true; }
+    if (id === "bshop"){ advShop(); return true; }
+    if (id === "tbuy"){ if (S.tl < TB_MAX && S.pt >= TB_COST(S.tl)){ S.pt -= TB_COST(S.tl); S.tl++; save(); sfxLv(true); advTower(); } return true; }
+    if (id.indexOf("xc_") === 0){ exchange(+id.slice(3)); return true; }
+    if (id.indexOf("sk_") === 0){ const p = id.split("_"); skinAct(p[1], p[2]); return true; }
     if (id === "acall"){ claimAch(null); advAch(true); return true; }
     if (id.indexOf("ac_") === 0){ claimAch(id.slice(3)); advAch(true); return true; }
     if (id === "achs"){ advChapters(); return true; }
@@ -1043,6 +1094,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     S.party = S.party.filter(i => S.inv[i]); if (S.party.length < 4) return advParty();
     const starts = [1]; for (let f = 10; f <= S.tw + 1; f += 10) starts.push(f);
     aView('<div id="t2" style="font-size:24px">♾ 無限の塔</div><div class="dim">上るほど敵が強くなります。HPは次の階へ持ち越し（生存者は30%回復）、全滅で終了。10階ごとにボス。初到達の階は報酬3倍。</div><div class="pt">最高 ' + S.tw + ' F</div>' +
+      '<div class="dim" style="color:#f5ff3b">塔の加護 Lv ' + S.tl + ' / ' + TB_MAX + '（塔の中だけ 全ステータス +' + Math.round(TB_RATE * S.tl * 100) + '%）　所持 ' + S.pt + ' PT</div><button class="b s" id="tbuy"' + (S.tl >= TB_MAX || S.pt < TB_COST(S.tl) ? " disabled" : "") + '>' + (S.tl >= TB_MAX ? "加護 MAX" : "加護を強化（" + TB_COST(S.tl) + " PT）") + '</button>' +
       starts.map(f => '<button class="b" id="tws' + f + '"' + (S.pt < TW_COST ? " disabled" : "") + '>' + f + 'F から挑戦（' + TW_COST + ' PT）</button>').join("") +
       '<div class="dim" style="color:#f5ff3b">入場コスト ' + TW_COST + ' PT（所持 ' + S.pt + ' PT）' + (S.pt < TW_COST ? "　PTが足りません" : "") + '。次の階へ進む間は不要です</div>' +
       '<div class="dim">10階ごとの開始位置は、その手前の階まで到達すると解放されます</div><button class="b s" id="achs">章を選ぶ</button><button class="b s" id="apt">編成を変える</button><button class="b s" id="bk">← HOME</button>');
@@ -1051,6 +1103,37 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (fs === "r") return '<button class="b s" id="ast">撤退する</button>';
     if (fs === "w") return '<div class="pt">CLEAR</div><div class="dim" style="font-size:14px;color:#f5ff3b">' + B.tw + 'F 突破　+' + B.rw + ' PT' + (B.first ? "（初到達ボーナス込み）" : "") + '</div><button class="b" id="twn">次の階へ（' + (B.tw + 1) + 'F）</button><button class="b s" id="btw">撤退して塔の入口へ</button>';
     return '<div class="pt" style="color:#ff3b5c;text-shadow:0 0 12px #ff3b5c">DEFEAT</div><div class="dim" style="font-size:14px;color:#f5ff3b">' + B.tw + 'F で全滅　最高到達 ' + S.tw + 'F</div><button class="b" id="btw">塔の入口へ</button><button class="b s" id="apt">編成を変える</button>';
+  }
+
+  // ===== ショップ（確定交換所・見た目） =====
+  const SKS = {note:["ノーツの形", [["bar", "標準（四角）"], ["round", "角丸"], ["diamond", "ダイヤ"], ["neon", "ネオン枠"]]],
+    bg:["背景", [["def", "ネオンナイト（標準）"], ["sunset", "サンセット"], ["forest", "フォレスト"], ["royal", "ロイヤル"], ["mono", "モノクローム"]]],
+    line:["判定ライン", [["def", "ピンク（標準）"], ["gold", "ゴールド"], ["white", "ホワイト"], ["cyan", "シアン"], ["green", "グリーン"]]]};
+  const skSwatch = (cat, id) => cat === "bg" ? '<span style="display:inline-block;width:40px;height:14px;vertical-align:middle;border:1px solid #2a5566;background:linear-gradient(' + SK_BG[id][0] + ',' + SK_BG[id][1] + ')"></span>'
+    : cat === "line" ? '<span style="display:inline-block;width:40px;height:4px;vertical-align:middle;background:' + SK_LINE[id] + ';box-shadow:0 0 6px ' + SK_LINE[id] + '"></span>' : "";
+  function advShop(keep){
+    menuBgm(true); battleBgm(false);
+    const exs = CH.map((c, i) => i).filter(i => EX_COST[CH[i][1]]).sort((a, b) => (EX_COST[CH[a][1]] - EX_COST[CH[b][1]]) || a - b);
+    const exHtml = exs.map(i => { const r = CH[i][1], c = EX_COST[r];
+      return '<div class="ac"><b style="color:' + RC[r] + '">' + r + '</b>　' + CH[i][0] + '　<span class="dim">所持 ' + (S.inv[i] || 0) + '</span><br><button class="b s" id="xc_' + i + '"' + (S.pt < c ? " disabled" : "") + ' style="margin-top:6px">1体と交換（' + c + ' PT）</button></div>'; }).join("");
+    const skHtml = Object.keys(SKS).map(cat => '<div class="dim" style="color:#f5ff3b;margin-top:6px">' + SKS[cat][0] + '</div>' + SKS[cat][1].map(([id, nm], k) => {
+      const eq = S.sk.eq[cat] === id, own = k === 0 || S.sk.own[cat + "_" + id];
+      return '<div class="ac"><b>' + nm + '</b>　' + skSwatch(cat, id) + '<br><button class="b s" id="sk_' + cat + '_' + id + '"' + (eq || (!own && S.pt < SK_COST) ? " disabled" : "") + ' style="margin-top:6px">' + (eq ? "使用中" : own ? "装備する" : "購入（" + SK_COST + " PT）") + '</button></div>'; }).join("")).join("");
+    aView('<div id="t2" style="font-size:26px">SHOP</div><div class="pt">' + S.pt + ' PT</div>' +
+      '<div class="dim" style="color:#f5ff3b;font-size:15px">確定交換所</div><div class="dim">好きなキャラを1体選んで交換できます（ガチャの運に頼らない救済）</div>' + exHtml +
+      '<div class="dim" style="color:#f5ff3b;font-size:15px;margin-top:10px">見た目（音ゲーの画面）</div><div class="dim">購入後はいつでも付け替えられます</div>' + skHtml +
+      '<button class="b s" id="bk">← HOME</button>', keep);
+  }
+  function exchange(i){
+    const r = CH[i][1], c = EX_COST[r]; if (busy || !c || S.pt < c) return;
+    busy = true; S.pt -= c; const nw = !S.inv[i]; S.inv[i] = (S.inv[i] || 0) + 1; save();
+    (async () => { try { await gfx([[i, nw]]); } catch(e){} busy = false; advShop(); })();
+  }
+  function skinAct(cat, id){
+    if (!SKN[cat] || SKN[cat].indexOf(id) < 0) return;
+    const key = cat + "_" + id, free = SKN[cat][0] === id;
+    if (!free && !S.sk.own[key]){ if (S.pt < SK_COST) return; S.pt -= SK_COST; S.sk.own[key] = 1; sfxLv(true); }
+    S.sk.eq[cat] = id; save(); advShop(true);
   }
 
   // ===== ホームに追加／共有 =====

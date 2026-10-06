@@ -106,7 +106,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .en .mi span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px;opacity:.4}
 .en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
-#dbgpt{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;z-index:6;padding:8px 10px;font-size:12px;font-weight:700;border:1px dashed #f5ff3b;background:rgba(4,6,14,.72);color:#f5ff3b;border-radius:4px}
 .cn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:46px;height:46px;padding:0;font-size:22px;border:1px solid var(--cyan);background:rgba(4,6,14,.72);color:#fff;z-index:5;box-shadow:0 0 10px rgba(0,240,255,.4)}
 .cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}.cn.s3{top:calc(env(safe-area-inset-top,0px) + 122px)}.cn.s4{top:calc(env(safe-area-inset-top,0px) + 178px)}.cn.s5{top:calc(env(safe-area-inset-top,0px) + 234px)}
 .cn i{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--mag);font:700 11px/18px sans-serif;font-style:normal}
@@ -128,7 +127,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
 <div class="scr" id="home"></div>
 <div id="zoom" hidden></div>
-<button id="dbgpt" hidden>＋10万PT（テスト用）</button>
 <div id="fx" hidden><canvas id="fc"></canvas><div id="fcard"></div><button class="b2" id="fskip">SKIP</button></div>
 
 <script>
@@ -183,8 +181,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const LEVELS = {
     easy:   {name:"EASY", keys:3, bpm:160, fall:1500, goal:150,  irr:[1],                                  chord:0},
     normal: {name:"NORMAL", keys:4, bpm:180, fall:1200, goal:300, irr:[1, 1, 0.5, 1.5, 0.75],              chord:0},
-    hard:   {name:"HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
-    veryhard: {name:"VERY HARD", keys:5, bpm:220, fall:600,  goal:650, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
+    hard:   {name:"HARD", keys:5, bpm:200, fall:800,  goal:600, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0},
+    veryhard: {name:"VERY HARD", keys:5, bpm:200, fall:800,  goal:600, irr:[0.5, 0.5, 0.75, 1, 0.5, 1.5, 0.6, 2, 0.5], chord:0.15},
   };
   // index.html と同じフォルダに置く。ゲーム開始のたびにランダムで1曲選ばれる
   const BGM_FILES = Array.from({length: 15}, (_, k) => "Music" + (k + 1) + ".mp3");
@@ -521,7 +519,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
       const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
     return r; };
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build26";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build27";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -550,18 +548,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
-  // テスト用：左上の「＋10万PT」ボタン（ホーム系の画面でだけ表示）。不要になったら下の数行とHTMLの#dbgptを消す
-  const dbg = $("dbgpt");
-  dbg.hidden = hm.hidden; new MutationObserver(() => { dbg.hidden = hm.hidden; }).observe(hm, {attributes:true, attributeFilter:["hidden"]});
-  dbg.addEventListener("click", () => {
-    S.pt += 100000; save(); sfxSel();
-    const t = document.createElement("div"); t.textContent = "+100000 PT（所持 " + S.pt + "）";
-    t.style.cssText = "position:fixed;left:12px;top:calc(env(safe-area-inset-top,0px) + 52px);z-index:7;padding:6px 10px;background:rgba(4,6,14,.85);border:1px solid #f5ff3b;color:#f5ff3b;font-size:13px;pointer-events:none";
-    document.body.appendChild(t); setTimeout(() => t.remove(), 1400);
-    if (hm.querySelector("#bp")) show("menu");   // 表示中の画面のPTを更新
-    else if (hm.querySelector('[id^="xc_"],[id^="sk_"]')) advShop(true);
-    else if (hm.querySelector("#tbuy")) advTower();
-  });
   const imgOf = i => i === 72 ? "ssr002.jpg" : i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : i < 48 ? "n" + String(i - 32).padStart(3, "0") + ".jpg" : i < 56 ? "r" + String(i - 47).padStart(3, "0") + ".jpg" : i < 64 ? "sr" + String(i - 55).padStart(3, "0") + ".jpg" : i < 65 ? "ssr" + String(i - 63).padStart(3, "0") + ".jpg" : i < 66 ? "r" + String(i - 56).padStart(3, "0") + ".jpg" : "n" + String(i - 50).padStart(3, "0") + ".jpg";
   const card = (i, ex, d, n) => { const [nm, r] = CH[i];
     return '<div class="c ' + r + ' ' + (ex || "") + '" data-i="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + ';animation-delay:' + (d || 0) + 'ms"><div class="im"><span>' + NUM[i] + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + '</b>' + nm + (n ? '<i>' + n + '</i>' : '') + '</div>';

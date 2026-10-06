@@ -107,7 +107,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .en .mi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .log{height:112px;overflow:hidden}
 .cn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;width:46px;height:46px;padding:0;font-size:22px;border:1px solid var(--cyan);background:rgba(4,6,14,.72);color:#fff;z-index:5;box-shadow:0 0 10px rgba(0,240,255,.4)}
-.cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}
+.cn.s2{top:calc(env(safe-area-inset-top,0px) + 66px)}.cn.s3{top:calc(env(safe-area-inset-top,0px) + 122px)}
 .cn i{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--mag);font:700 11px/18px sans-serif;font-style:normal}
 .ac{width:100%;border:1px solid #2a5566;padding:10px;text-align:left;font-size:13px;line-height:1.6;background:rgba(8,14,30,.95)}.ac.d{border-color:#f5ff3b}.ac.g{opacity:.45}
 </style>
@@ -165,7 +165,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // BGM（ゲーム開始と同時に再生。効果音・振動はなし）
   const bgm = new Audio();
   bgm.preload = "auto"; bgm.volume = 0.85; bgm.loop = true;
-  const BGM_HARD = ["music-h-01.mp3", "music-h-02.mp3", "music-h-03.mp3"];   // HARD / VERY HARD 専用（通常曲に加えて選ばれる）
+  const BGM_HARD = ["music-h-01.mp3", "music-h-02.mp3", "music-h-03.mp3", "music-h-04.mp3", "music-h-05.mp3", "music-h-06.mp3", "music-h-07.mp3", "music-h-08.mp3"];   // HARD / VERY HARD 専用（通常曲に加えて選ばれる）
   let lastBgm = "";
   function pickBgm(){
     const pool = EV ? BATTLE_BGM : (level === "hard" || level === "veryhard") ? BGM_FILES.concat(BGM_HARD) : BGM_FILES;   // イベントバトル中は battle1〜3.mp3
@@ -467,7 +467,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const AW_MAX = 5, AW_RATE = .1, AW_COST = a => 100000 * (a + 1);   // 覚醒：★5まで、★1つで全ステータス+10%、費用は10万→20万→…
   const TB_MAX = 10, TB_RATE = .04, TB_COST = l => 100000 + 50000 * l;   // 塔の加護：Lv10まで、1Lvで塔の中の全ステータス+4%
   const SELL = {N:5, R:15, SR:50, SSR:500, UL:3000};   // 余剰カードの売却額（ガチャ1回100PTの期待売却額は約30PT＝稼ぎ目的の周回にはならない）
-  const EX_COST = {SSR:10000, UL:1000000}, SK_COST = 10000;   // 確定交換所／見た目の価格
+  const EX_COST = {SSR:10000}, SK_COST = 10000;   // 確定交換所／見た目の価格（ULは自力入手のみ。交換不可）
   const SKN = {note:["bar", "round", "diamond", "neon"], bg:["def", "sunset", "forest", "royal", "mono"], line:["def", "gold", "white", "cyan", "green"]};
   const SK_BG = {def:["#04060e", "#140828", "rgba(0,240,255,.10)"], sunset:["#1c0610", "#3d1208", "rgba(255,140,60,.13)"], forest:["#02120c", "#05281a", "rgba(57,255,136,.10)"], royal:["#06031a", "#1d0a45", "rgba(255,210,59,.10)"], mono:["#000000", "#1a1a1a", "rgba(255,255,255,.08)"]};
   const SK_LINE = {def:"#ff2bd6", gold:"#ffd23b", white:"#ffffff", cyan:"#00f0ff", green:"#39ff88"};
@@ -476,16 +476,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
       const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
     return r; };
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build15";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build16";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
   const RC = {N:"#7f93a8", R:"#00f0ff", SR:"#ff2bd6", SSR:"#f5ff3b", UL:"#ffffff"};
-  // 全72体（001a〜033a.jpg ＋ n001〜n021.jpg ＋ r001〜r009.jpg ＋ sr001〜sr008.jpg ＋ ssr001.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
+  // 全73体（001a〜033a.jpg ＋ n001〜n021.jpg ＋ r001〜r009.jpg ＋ sr001〜sr008.jpg ＋ ssr001.jpg ＋ ssr002.jpg）。名前を付けたい場合は CN に {表示番号:"名前"} を追加
   const CN = {};
   const CH = [];
-  // 内部番号(セーブ用)は既存33体の後ろにN 21枚・R 9枚・SR 8枚・SSR 1枚を追加した順。表示順はSHOWでレアリティ順に並べ替える
-  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",8],["SSR",1],["R",1],["N",6]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
+  // 内部番号(セーブ用)は既存33体の後ろにN 21枚・R 9枚・SR 8枚・SSR 1枚を追加した順（その後ろにSSR 1枚＝ssr002）。表示順はSHOWでレアリティ順に並べ替える
+  [["N",12],["R",10],["SR",6],["SSR",4],["UL",1],["N",15],["R",8],["SR",8],["SSR",1],["R",1],["N",6],["SSR",1]].forEach(([r, n]) => { for (let k = 0; k < n; k++){ const i = CH.length; CH.push(["", r]); } });
   const RANKS = ["N", "R", "SR", "SSR", "UL"];
   const SHOW = CH.map((c, k) => k).sort((a, b) => RANKS.indexOf(CH[a][1]) - RANKS.indexOf(CH[b][1]) || a - b);   // コレクションの表示順（N→R→SR→SSR→UL）
   const NUM = [];   // 表示番号（レアリティ順の通し番号。高レアほど後ろ）。名前はここで確定
@@ -504,7 +504,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   for (const k in S.lv) S.lv[k] = Math.min(S.lv[k] | 0, CH[k] ? maxE(k) : 0);
   function save(){ try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e){} }
   const hm = $("home"), SUB0 = sub.innerHTML;
-  const imgOf = i => i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : i < 48 ? "n" + String(i - 32).padStart(3, "0") + ".jpg" : i < 56 ? "r" + String(i - 47).padStart(3, "0") + ".jpg" : i < 64 ? "sr" + String(i - 55).padStart(3, "0") + ".jpg" : i < 65 ? "ssr" + String(i - 63).padStart(3, "0") + ".jpg" : i < 66 ? "r" + String(i - 56).padStart(3, "0") + ".jpg" : "n" + String(i - 50).padStart(3, "0") + ".jpg";
+  const imgOf = i => i === 72 ? "ssr002.jpg" : i < 33 ? String(i + 1).padStart(3, "0") + "a.jpg" : i < 48 ? "n" + String(i - 32).padStart(3, "0") + ".jpg" : i < 56 ? "r" + String(i - 47).padStart(3, "0") + ".jpg" : i < 64 ? "sr" + String(i - 55).padStart(3, "0") + ".jpg" : i < 65 ? "ssr" + String(i - 63).padStart(3, "0") + ".jpg" : i < 66 ? "r" + String(i - 56).padStart(3, "0") + ".jpg" : "n" + String(i - 50).padStart(3, "0") + ".jpg";
   const card = (i, ex, d, n) => { const [nm, r] = CH[i];
     return '<div class="c ' + r + ' ' + (ex || "") + '" data-i="' + i + '" style="border-color:' + RC[r] + ';color:' + RC[r] + ';animation-delay:' + (d || 0) + 'ms"><div class="im"><span>' + NUM[i] + '</span><img src="' + imgOf(i) + '" onerror="this.remove()"></div><b>' + r + '</b>' + nm + (n ? '<i>' + n + '</i>' : '') + '</div>';
   };
@@ -700,7 +700,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const own = Object.keys(S.inv).length, pt = '<div class="pt">' + S.pt + ' PT</div>';
     let h = "";
     if (v === "menu") h = '<div class="tp"><div id="t2" class="logo">OVERCLOCKED</div>' + pt + '<div class="dim">BEST HIT ' + S.best + ' ・ COLLECTION ' + own + '/' + CH.length + '</div></div>' +
-      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '<button class="b s" id="bsh">共有</button></div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button><button class="cn s2" id="bshop">🛒</button>';
+      '<div class="bt"><button class="b" id="bp">♪ PLAY</button><button class="b" id="bg">GACHA（' + Math.floor(S.pt / COST) + '回分）</button><button class="b" id="bc">COLLECTION</button>' + (advOpen() ? '<button class="b" id="badv">⚔ ADVENTURE</button>' : '') + '<button class="b s" id="bd">DATA（引き継ぎ・リセット）</button><div class="r2" style="width:100%">' + (isStandalone() ? '' : '<button class="b s" id="ba">ホームに追加</button>') + '</div><div class="dim" style="opacity:.7">ver ' + VERSION + '</div></div><button class="cn" id="bac">🏆' + (achReady().length ? '<i>' + achReady().length + '</i>' : "") + '</button>' + (shopOpen() ? '<button class="cn s2" id="bshop">🛒</button>' : '') + '<button class="cn ' + (shopOpen() ? 's3' : 's2') + '" id="bsh">📤</button>';
     else if (v === "data") h = '<div id="t2" style="font-size:28px">DATA</div>' +
       '<div class="warn">⚠ セーブデータはこのブラウザ内にのみ保存されます。ブラウザのデータ／キャッシュ削除、端末や別ブラウザへの移動、シークレットモードでは消えます。大切なデータは引き継ぎコードを控えておいてください。リセットは元に戻せません。</div>' +
       '<div class="dim">引き継ぎコード（書き出し）</div><textarea class="ta" id="ex" readonly>' + exportCode() + '</textarea><button class="b s" id="cp">コードをコピー</button>' +
@@ -833,6 +833,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       msgBox('<b style="color:#f5ff3b">第' + (c + 1) + '章クリア特典</b><br>+' + CB_PT(c) + ' PT（所持 ' + S.pt + '）<br>' + q + '「' + CH[i][0] + '」を獲得' + (nw ? "（NEW）" : "（所持済み → 強化に使えます）")); })();
   }
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
+  const shopOpen = () => Object.keys(S.inv).length / CH.length > 0.8;   // カード取得率が80%を超えるとショップが出現
   const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
   const owned = () => SHOW.filter(i => S.inv[i]);
   const bar = (v, m, c) => '<div class="hb"><i style="width:' + Math.max(0, v / m * 100) + '%' + (c ? ';background:' + c : '') + '"></i></div>';
@@ -1012,7 +1013,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     if (/^tws\d+$/.test(id)){ if (S.pt < TW_COST) return true; S.pt -= TW_COST; save(); startTower(+id.slice(3), null); return true; }
     if (id === "twn" && B && B.tw){ startTower(B.tw + 1, B.party); return true; }
     if (id === "bac"){ advAch(); return true; }
-    if (id === "bshop"){ advShop(); return true; }
+    if (id === "bshop"){ if (shopOpen()) advShop(); return true; }
     if (id === "tbuy"){ if (S.tl < TB_MAX && S.pt >= TB_COST(S.tl)){ S.pt -= TB_COST(S.tl); S.tl++; save(); sfxLv(true); advTower(); } return true; }
     if (id.indexOf("xc_") === 0){ exchange(+id.slice(3)); return true; }
     if (id.indexOf("sk_") === 0){ const p = id.split("_"); skinAct(p[1], p[2]); return true; }

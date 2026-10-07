@@ -35,6 +35,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .lv button.on{border-color:var(--cyan);color:#001015;background:var(--cyan);box-shadow:0 0 14px var(--cyan)}
 #unlock{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:11;padding:12px 14px;border:1px solid #f5ff3b;background:rgba(4,6,14,.95);color:#f5ff3b;font-weight:700;font-size:15px;line-height:1.8;text-align:center;box-shadow:0 0 18px rgba(245,255,59,.45)}
 #unlock small{display:block;font-weight:400;font-size:12px;color:#d8f6ff}
+#speed{width:100%;font:inherit;font-weight:900;font-size:15px;letter-spacing:.12em;padding:12px;border:1px solid #2a5566;background:transparent;color:#7fb4c6}
+#speed.on{border-color:#00f0ff;color:#001418;background:#00f0ff;box-shadow:0 0 16px #00f0ff}
+#speedNote{font-size:11px;color:#7fb4c6;margin-top:-10px}
 #hyper{width:100%;font:inherit;font-weight:900;font-size:15px;letter-spacing:.12em;padding:12px;border:1px solid #2a5566;background:transparent;color:#7fb4c6}
 #hyper.on{border-color:#f5ff3b;color:#1a1500;background:#f5ff3b;box-shadow:0 0 16px #f5ff3b}
 #hyperNote{font-size:11px;color:#7fb4c6;margin-top:-10px}
@@ -126,6 +129,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   <div class="lv" id="lv">
     <button data-l="easy">EASY</button><button data-l="normal" class="on">NORMAL</button><button data-l="hard">HARD</button><button data-l="veryhard">VERY HARD</button>
   </div>
+  <button id="speed">🚀 Speed-Mode：OFF</button>
+  <div id="speedNote">譜面が速く落ちてくる高速モード（獲得PT ×1.5）</div>
   <button id="hyper">⚡ Hyper-Mode：OFF</button>
   <div id="hyperNote">同時押し＋押しっぱなしが加わる高難度モード（獲得PT 2倍）</div>
   <button id="start">START</button>
@@ -202,6 +207,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   let KEYS, GOAL, BPM, FALL, INTERVAL, T0, USE, BASE_GOAL, IRR, CHORD;
   // Hyper-Mode：同時押し（出現率15%）＋押しっぱなしノーツ（20個に1個）を追加する高難度モード。冒険のイベントバトルでは無効
+  // Speed-Mode：BPMを1.1倍・落下時間を0.75倍にして全体的に速くする（HARDなら bpm200→220, fall800→600）。獲得PTは1.5倍
+  const SPEED_BPM = 1.1, SPEED_FALL = .75, SPEED_BONUS = 1.5, HYPER_BONUS = 2;
+  let speedOn = false; try { speedOn = localStorage.getItem("overclocked_speed") === "1"; } catch(e){}
+  let speed = false;
   const HYPER_CHORD = .15, HOLD_RATE = 1 / 20, HOLD_BEATS = [2, 3, 4], HOLD_GAP = 350;   // HOLD_GAP：押しっぱなしの前後は同時押しを置かない時間(ms)   // ホールドの長さは2〜4拍
   let hyperOn = false; try { hyperOn = localStorage.getItem("overclocked_hyper") === "1"; } catch(e){}
   let hyper = false, chordNow = 0, holdNow = 0, laneBusy = [], holdUntil = -1e9, lastChordT = -1e9;   // hyper：このプレイで有効か／chordNow・holdNow：このプレイの出現率／laneBusy：ホールド中でノーツを置けないレーン
@@ -233,8 +242,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const hyperBtn = $("hyper"), hyperNote = $("hyperNote");
   const markHyper = () => { hyperBtn.classList.toggle("on", hyperOn); hyperBtn.textContent = "⚡ Hyper-Mode：" + (hyperOn ? "ON" : "OFF"); };
   markHyper();
+  const speedBtn = $("speed"), speedNote = $("speedNote");
+  const markSpeed = () => { speedBtn.classList.toggle("on", speedOn); speedBtn.textContent = "🚀 Speed-Mode：" + (speedOn ? "ON" : "OFF"); };
+  markSpeed();
+  speedBtn.addEventListener("click", () => { speedOn = !speedOn; try { localStorage.setItem("overclocked_speed", speedOn ? "1" : "0"); } catch(e){} markSpeed(); });
   hyperBtn.addEventListener("click", () => { hyperOn = !hyperOn; try { localStorage.setItem("overclocked_hyper", hyperOn ? "1" : "0"); } catch(e){} markHyper(); });
-  const hyperUpd = () => { hyperBtn.hidden = hyperNote.hidden = lvBox.hidden || !hyperOpen(); };   // 難易度選択が出ていて、かつULを持っている時だけ表示
+  const hyperUpd = () => { speedBtn.hidden = speedNote.hidden = hyperBtn.hidden = hyperNote.hidden = lvBox.hidden; };   // 難易度選択が出ている時だけ表示
   new MutationObserver(hyperUpd).observe(lvBox, {attributes:true, attributeFilter:["hidden"]});
   [...lvBox.children].forEach(b => { const q = LEVELS[b.dataset.l]; b.innerHTML = q.name + '<br><span style="font-size:11px;opacity:.8">GOAL ' + q.goal + '</span>'; });
   lvBox.addEventListener("click", e => { const l = e.target.dataset && e.target.dataset.l; if (l){ setLevel(l); notes = []; layout(); markLevel(); } });
@@ -270,8 +283,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   function begin(){
     layout();
     hp = MAX_HP; score = 0; combo = 0; maxCombo = 0; resolved = 0; spawned = 0; notes = [];
-    cnt = {p:0, g:0, m:0}; lastLane = -1; sameRun = 0; GOAL = BASE_GOAL; nextT = T0;
-    hyper = hyperOn && hyperOpen() && !EV; chordNow = hyper ? Math.max(CHORD, HYPER_CHORD) : CHORD; holdNow = hyper ? HOLD_RATE : 0; laneBusy = []; holdUntil = -1e9; lastChordT = -1e9;   // 冒険のイベントバトルはHyper無効
+    cnt = {p:0, g:0, m:0}; lastLane = -1; sameRun = 0; GOAL = BASE_GOAL;
+    speed = speedOn && !EV; { const P = LEVELS[level]; BPM = speed ? Math.round(P.bpm * SPEED_BPM) : P.bpm; FALL = speed ? Math.round(P.fall * SPEED_FALL) : P.fall; INTERVAL = 60000 / BPM; T0 = FALL + 600; }   // 冒険のイベントバトルはSpeed無効
+    nextT = T0;
+    hyper = hyperOn && !EV; chordNow = hyper ? Math.max(CHORD, HYPER_CHORD) : CHORD; holdNow = hyper ? HOLD_RATE : 0; laneBusy = []; holdUntil = -1e9; lastChordT = -1e9;   // 冒険のイベントバトルはHyper無効
     down.length = 0;
     judge = {text:"", color:"#fff", at:0};
     try { bgm.pause(); bgm.src = pickBgm(); bgm.currentTime = 0; bgm.play().catch(() => {}); } catch(e){}   // タップ操作内で再生
@@ -288,12 +303,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const fcb = cleared && cnt.m === 0;
     title.textContent = fcb ? "FULL COMBO!" : cleared ? "CLEAR" : "GAME OVER";
     title.className = fcb ? "tfc" : cleared ? "tcl" : "";
-    sub.innerHTML = (hyper ? '<b style="color:#f5ff3b">⚡ HYPER-MODE</b><br>' : "") + "HIT " + score + " / " + GOAL + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo;
+    sub.innerHTML = (speed ? '<b style="color:#00f0ff">🚀 SPEED-MODE</b><br>' : "") + (hyper ? '<b style="color:#f5ff3b">⚡ HYPER-MODE</b><br>' : "") + "HIT " + score + " / " + GOAL + "<br>PERFECT " + cnt.p + " ・ GOOD " + cnt.g + " ・ MISS " + cnt.m + "<br>MAX COMBO " + maxCombo;
     const base = cnt.p * PT_P + cnt.g * PT_G, cb = cleared ? base * CLEAR_RATE : 0, fb = fcb ? base * FC_RATE : 0;
-    const rw = Math.round((base + cb + fb) * MULT[level] * (hyper ? 2 : 1));   // Hyper-Modeは獲得PT2倍
+    const rw = Math.round((base + cb + fb) * MULT[level] * (hyper ? HYPER_BONUS : 1) * (speed ? SPEED_BONUS : 1));   // Hyper-Mode ×2、Speed-Mode ×1.5（両方ONなら ×3）
     S.pt += rw; S.best = Math.max(S.best, score); save();
     sub.innerHTML += '<br>' + (fcb ? '<b style="color:#f5ff3b">★ FULL COMBO ★</b><br>' : '') +
-      'BASE ' + Math.round(base) + (cb ? ' ＋ CLEAR ' + Math.round(cb) : '') + (fb ? ' ＋ FULL COMBO ' + Math.round(fb) : '') + ' ×' + MULT[level] + (hyper ? ' ×2 (HYPER)' : '') +
+      'BASE ' + Math.round(base) + (cb ? ' ＋ CLEAR ' + Math.round(cb) : '') + (fb ? ' ＋ FULL COMBO ' + Math.round(fb) : '') + ' ×' + MULT[level] + (hyper ? ' ×' + HYPER_BONUS + ' (HYPER)' : '') + (speed ? ' ×' + SPEED_BONUS + ' (SPEED)' : '') +
       '<br><b style="color:#f5ff3b;font-size:20px">+' + rw + ' PT</b>（所持 ' + S.pt + '）';
     startBtn.textContent = "RETRY";
     lvBox.hidden = false;
@@ -516,7 +531,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "right"; ctx.fillStyle = "#d8f6ff"; ctx.font = "700 16px " + FONT;
     ctx.fillText(score + " / " + GOAL, fx + fieldW - 10, hy + 12);
     ctx.textAlign = "left"; ctx.fillStyle = "#7fb4c6"; ctx.font = "700 12px " + FONT;
-    ctx.fillText(LEVELS[level].name + (hyper ? "  ⚡HYPER" : ""), fx + 10, hy + 36);
+    ctx.fillText(LEVELS[level].name + (speed ? "  🚀SPEED" : "") + (hyper ? "  ⚡HYPER" : ""), fx + 10, hy + 36);
     if (EV){ ctx.textAlign = "right"; ctx.fillStyle = "#ff8aa0"; ctx.font = "700 11px " + FONT; ctx.fillText("EVENT BATTLE", fx + fieldW - 10, hy + 36); }
 
     // 判定表示
@@ -568,7 +583,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   const dstr = o => { const d = new Date(); d.setDate(d.getDate() + (o || 0)); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   const normDm = o => ({d: o && typeof o.d === "string" ? o.d : "", p:[0, 1, 2].map(k => Math.max(0, (o && o.p && o.p[k]) | 0)), c:[0, 1, 2].map(k => o && o.c && o.c[k] ? 1 : 0)});   // デイリーミッション（日付・進捗・受取済）
   const normLb = o => ({d: o && typeof o.d === "string" ? o.d : "", n: Math.max(0, Math.min(999, (o && o.n) | 0))});   // ログインボーナス（最終受取日・連続日数）
-  const normUn = o => { const r = {}; ["hyper", "shop", "adv"].forEach(k => { if (o && o[k]) r[k] = 1; }); return r; };   // 出現メッセージを表示済みの機能
+  const normUn = o => { const r = {}; ["shop", "adv"].forEach(k => { if (o && o[k]) r[k] = 1; }); return r; };   // 出現メッセージを表示済みの機能
   const normSt = o => { const r = {}; ["pl", "ok", "fc", "g", "mc"].forEach(k => { r[k] = Math.max(0, ((o && o[k]) | 0)); }); return r; };   // 累計記録：プレイ数・クリア数・フルコンボ数・ガチャ回数・最大コンボ
   // 覚醒・塔の加護・ショップ・売却の設定
   const AW_MAX = 5, AW_RATE = .1, AW_COST = a => 100000 * (a + 1);   // 覚醒：★5まで、★1つで全ステータス+10%、費用は10万→20万→…
@@ -583,7 +598,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
       const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
     return r; };
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-07 build30";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-07 build31";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
@@ -947,7 +962,6 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       busy = false; advChapters();
       msgBox('<b style="color:#f5ff3b">第' + (c + 1) + '章クリア特典</b><br>+' + CB_PT(c) + ' PT（所持 ' + S.pt + '）<br>' + q + '「' + CH[i][0] + '」を獲得' + (nw ? "（NEW）" : "（所持済み → 強化に使えます）")); })();
   }
-  const hyperOpen = () => CH.some((c, i) => c[1] === "UL" && S.inv[i]);   // UL（最高レア）を持っているとHyper-Modeが出現
   const advOpen = () => Object.keys(S.inv).length >= ADV_UNLOCK;
   const shopOpen = () => Object.keys(S.inv).length / CH.length >= 0.9;   // カード取得率が90%以上でショップが出現
   const skillOf = id => id % 3 === 0 ? "heal" : "aoe";
@@ -1307,12 +1321,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   // 新しい機能が出現した時、メニュー画面に一度だけメッセージを出す
   const ub = $("unlock"); let ubT = 0;
   const UNLOCK_MSG = {
-    hyper:["⚡ Hyper-Modeが出現しました。", "PLAYの難易度選択画面でON/OFFできます（獲得PT 2倍）", "⚡ Hyper-Mode has appeared.", "Toggle it on the difficulty screen (2x PT)"],
     shop:["🛒 ショップが出現しました。", "画面右上の🛒から入れます", "🛒 The Shop has appeared.", "Open it with the 🛒 button at the top right"],
     adv:["⚔ ADVENTUREが出現しました。", "メニューから挑戦できます", "⚔ ADVENTURE has appeared.", "Start it from the menu"]};
   function unlockCheck(){
     S.un = normUn(S.un);
-    const ok = {hyper:hyperOpen(), shop:shopOpen(), adv:advOpen()};
+    const ok = {shop:shopOpen(), adv:advOpen()};
     const fresh = Object.keys(UNLOCK_MSG).filter(k => ok[k] && !S.un[k]);
     if (!fresh.length) return;
     fresh.forEach(k => { S.un[k] = 1; }); save();

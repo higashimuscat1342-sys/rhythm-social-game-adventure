@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>OVERCLOCKED</title>
 <link rel="manifest" href="manifest.json">
+<link rel="preload" as="image" href="title.jpg">
 <meta name="theme-color" content="#04060e">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -261,7 +262,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
   let L = {};
 
   function layout(){
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const W = window.innerWidth, H = window.innerHeight;
     const nw = Math.round(W * dpr), nh = Math.round(H * dpr);
     if (cv.width !== nw || cv.height !== nh){ cv.width = nw; cv.height = nh; }   // 同じサイズなら再設定しない（再設定すると一瞬真っ黒になる）
@@ -447,19 +448,22 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       ctx.fillStyle = "#fff"; ctx.fillRect(x + lw * .2, y - 1.5, lw * .6, 3);
     }
   }
+  let bgCache = null, bgCacheKey = "";
   function draw(g, pn){
     const {W, H, fieldW, fx, laneW, topY, judgeY, bottom, st} = L;
     ctx.shadowBlur = 0;
 
     // 背景：流れるグリッド
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
     const th = SK_BG[S.sk.eq.bg] || SK_BG.def, noteSk = S.sk.eq.note, lineCol = SK_LINE[S.sk.eq.line] || SK_LINE.def;
-    bg.addColorStop(0, th[0]); bg.addColorStop(1, th[1]);
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    const bgk = H + th[0] + th[1];
+    if (bgk !== bgCacheKey){ bgCache = ctx.createLinearGradient(0, 0, 0, H); bgCache.addColorStop(0, th[0]); bgCache.addColorStop(1, th[1]); bgCacheKey = bgk; }
+    ctx.fillStyle = bgCache; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = th[2]; ctx.lineWidth = 1;
     const off = (pn / 25) % 40;
-    for (let y = -40 + off; y < H; y += 40){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    for (let x = fx % 40; x < W; x += 40){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    ctx.beginPath();   // グリッドは1本のパスにまとめて1回だけstroke
+    for (let y = -40 + off; y < H; y += 40){ ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    for (let x = fx % 40; x < W; x += 40){ ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    ctx.stroke();
 
     const sk = pn - shakeAt; ctx.save();
     if (sk < 250) ctx.translate(Math.sin(sk / 22) * 6 * (1 - sk / 250), 0);
@@ -467,10 +471,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     // フィールド
     const fh = bottom - topY;
     ctx.fillStyle = "rgba(4,8,20,.78)"; ctx.fillRect(fx, topY, fieldW, fh);
-    ctx.strokeStyle = "#00f0ff"; ctx.lineWidth = 2;
-    ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.moveTo(fx, topY); ctx.lineTo(fx, bottom); ctx.moveTo(fx + fieldW, topY); ctx.lineTo(fx + fieldW, bottom); ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "#00f0ff";
+    ctx.beginPath(); ctx.moveTo(fx, topY); ctx.lineTo(fx, bottom); ctx.moveTo(fx + fieldW, topY); ctx.lineTo(fx + fieldW, bottom);
+    ctx.globalAlpha = .25; ctx.lineWidth = 8; ctx.stroke(); ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.stroke();
     ctx.strokeStyle = "rgba(0,240,255,.25)"; ctx.lineWidth = 1;
     for (let i = 1; i < KEYS; i++){ ctx.beginPath(); ctx.moveTo(fx + i * laneW, topY); ctx.lineTo(fx + i * laneW, bottom); ctx.stroke(); }
 
@@ -485,9 +488,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     }
 
     // 判定ライン
-    ctx.strokeStyle = lineCol; ctx.lineWidth = 3; ctx.shadowColor = lineCol; ctx.shadowBlur = 14;
+    ctx.strokeStyle = lineCol; ctx.globalAlpha = .28; ctx.lineWidth = 10;
     ctx.beginPath(); ctx.moveTo(fx, judgeY); ctx.lineTo(fx + fieldW, judgeY); ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1; ctx.lineWidth = 3; ctx.stroke();
 
     // タップパッド
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -524,9 +527,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     // HUD
     const hy = st + 14, bw = Math.min(26, (fieldW * .55) / MAX_HP - 4);
     for (let i = 0; i < MAX_HP; i++){
-      ctx.fillStyle = i < hp ? "#00f0ff" : "rgba(0,240,255,.15)";
-      if (i < hp){ ctx.shadowColor = "#00f0ff"; ctx.shadowBlur = 8; }
-      ctx.fillRect(fx + 10 + i * (bw + 4), hy, bw, 10); ctx.shadowBlur = 0;
+      const hx = fx + 10 + i * (bw + 4);
+      if (i < hp){ ctx.globalAlpha = .3; ctx.fillStyle = "#00f0ff"; ctx.fillRect(hx - 2, hy - 2, bw + 4, 14); ctx.globalAlpha = 1; ctx.fillStyle = "#00f0ff"; }
+      else ctx.fillStyle = "rgba(0,240,255,.15)";
+      ctx.fillRect(hx, hy, bw, 10);
     }
     ctx.textBaseline = "alphabetic"; ctx.textAlign = "right"; ctx.fillStyle = "#d8f6ff"; ctx.font = "700 16px " + FONT;
     ctx.fillText(score + " / " + GOAL, fx + fieldW - 10, hy + 12);
@@ -538,18 +542,22 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     const a = 1 - (pn - judge.at) / 650;
     if (a > 0 && judge.text){
       const cy = (topY + judgeY) / 2;
-      ctx.globalAlpha = a; ctx.textAlign = "center"; ctx.fillStyle = judge.color; ctx.shadowColor = judge.color; ctx.shadowBlur = 14;
-      ctx.font = "900 34px " + FONT; ctx.fillText(judge.text, W / 2, cy);
+      ctx.globalAlpha = a; ctx.textAlign = "center"; ctx.fillStyle = judge.color;
+      ctx.font = "900 34px " + FONT; ctx.lineJoin = "round"; ctx.lineWidth = 7; ctx.strokeStyle = judge.color;
+      ctx.globalAlpha = a * .25; ctx.strokeText(judge.text, W / 2, cy); ctx.globalAlpha = a;   // shadowBlurの代わりの軽い発光
+      ctx.fillText(judge.text, W / 2, cy);
       if (combo >= 2){ ctx.font = "700 18px " + FONT; ctx.fillText(combo + " COMBO", W / 2, cy + 30); }
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
 
-  function frame(){
+  function frame(pn){
     requestAnimationFrame(frame);
-    const pn = performance.now(), g = pn - startT;
+    pn = pn || performance.now();   // rAFの時刻を使うとノーツの動きが等間隔になる
+    const g = pn - startT;
     if (state === "play") update(g);
+    if (state === "idle" && !hm.hidden) return;   // メニュー等で画面が覆われている間はcanvasを描かない
     draw(g, pn); drawFw();
   }
 
@@ -1350,6 +1358,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     let ok = false; try { await navigator.clipboard.writeText(text + " " + url); ok = true; } catch(e){}
     msgBox(ok ? "共有メッセージとリンクをコピーしました。<br>SNSやメッセージアプリに貼り付けてください。" : "この環境では共有できません。次のURLをコピーして送ってください。<br><br>" + url);
   }
+  { const im = new Image(); im.onerror = () => console.warn("title.jpg を読み込めません: " + im.src); im.src = "title.jpg"; }
   show("menu");
   loginBonus();
   frame();

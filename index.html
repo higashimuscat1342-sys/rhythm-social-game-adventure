@@ -202,9 +202,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 
   let KEYS, GOAL, BPM, FALL, INTERVAL, T0, USE, BASE_GOAL, IRR, CHORD;
   // Hyper-Mode：同時押し（出現率15%）＋押しっぱなしノーツ（20個に1個）を追加する高難度モード。冒険のイベントバトルでは無効
-  const HYPER_CHORD = .15, HOLD_RATE = 1 / 20, HOLD_BEATS = [2, 3, 4];   // ホールドの長さは2〜4拍
+  const HYPER_CHORD = .15, HOLD_RATE = 1 / 20, HOLD_BEATS = [2, 3, 4], HOLD_GAP = 350;   // HOLD_GAP：押しっぱなしの前後は同時押しを置かない時間(ms)   // ホールドの長さは2〜4拍
   let hyperOn = false; try { hyperOn = localStorage.getItem("overclocked_hyper") === "1"; } catch(e){}
-  let hyper = false, chordNow = 0, holdNow = 0, laneBusy = [];   // hyper：このプレイで有効か／chordNow・holdNow：このプレイの出現率／laneBusy：ホールド中でノーツを置けないレーン
+  let hyper = false, chordNow = 0, holdNow = 0, laneBusy = [], holdUntil = -1e9, lastChordT = -1e9;   // hyper：このプレイで有効か／chordNow・holdNow：このプレイの出現率／laneBusy：ホールド中でノーツを置けないレーン
   function setLevel(l){
     level = l; const P = LEVELS[l];
     KEYS = P.keys; BASE_GOAL = GOAL = P.goal; BPM = P.bpm; FALL = P.fall; IRR = P.irr; CHORD = P.chord;
@@ -271,7 +271,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     layout();
     hp = MAX_HP; score = 0; combo = 0; maxCombo = 0; resolved = 0; spawned = 0; notes = [];
     cnt = {p:0, g:0, m:0}; lastLane = -1; sameRun = 0; GOAL = BASE_GOAL; nextT = T0;
-    hyper = hyperOn && hyperOpen() && !EV; chordNow = hyper ? Math.max(CHORD, HYPER_CHORD) : CHORD; holdNow = hyper ? HOLD_RATE : 0; laneBusy = [];   // 冒険のイベントバトルはHyper無効
+    hyper = hyperOn && hyperOpen() && !EV; chordNow = hyper ? Math.max(CHORD, HYPER_CHORD) : CHORD; holdNow = hyper ? HOLD_RATE : 0; laneBusy = []; holdUntil = -1e9; lastChordT = -1e9;   // 冒険のイベントバトルはHyper無効
     down.length = 0;
     judge = {text:"", color:"#fff", at:0};
     try { bgm.pause(); bgm.src = pickBgm(); bgm.currentTime = 0; bgm.play().catch(() => {}); } catch(e){}   // タップ操作内で再生
@@ -385,15 +385,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
       if (t - g > FALL) break;
       const a = pickLane(t, -1);
       if (a < 0){ nextT += INTERVAL * .5; continue; }   // 空きレーンがなければ少し待つ
-      if (holdNow && Math.random() < holdNow){   // 押しっぱなしノーツ（Hyper-Modeのみ）
+      // 押しっぱなしは「他の押しっぱなしの最中」「同時押しの直後」には置かない。同時押しも押しっぱなしの前後には置かない（両方が同時に来ると対処できないため）
+      const isHold = holdNow && t > holdUntil + HOLD_GAP && t > lastChordT + HOLD_GAP && Math.random() < holdNow;
+      if (isHold){   // 押しっぱなしノーツ（Hyper-Modeのみ）
         const len = INTERVAL * HOLD_BEATS[Math.floor(Math.random() * HOLD_BEATS.length)];
-        notes.push({lane:a, t, hold:true, end:t + len, held:false}); laneBusy[a] = t + len;
+        notes.push({lane:a, t, hold:true, end:t + len, held:false}); laneBusy[a] = t + len; holdUntil = t + len;
       } else notes.push({lane:a, t});
       spawned++;
-      // 同時押し（chord > 0 の難易度、またはHyper-Mode）
-      if (chordNow && spawned < GOAL && Math.random() < chordNow){
+      // 同時押し（chord > 0 の難易度、またはHyper-Mode）。押しっぱなし自身には付けず、押しっぱなしの最中・直後にも出さない
+      if (!isHold && chordNow && spawned < GOAL && t > holdUntil + HOLD_GAP && Math.random() < chordNow){
         const b = pickLane(t, a);
-        if (b >= 0){ notes.push({lane:b, t}); spawned++; }
+        if (b >= 0){ notes.push({lane:b, t}); spawned++; lastChordT = t; }
       }
       nextT += INTERVAL * IRR[Math.floor(Math.random() * IRR.length)];
     }
@@ -581,7 +583,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
     Object.keys(SKN).forEach(c => { SKN[c].forEach((id, k) => { if (k && o && o.own && o.own[c + "_" + id]) r.own[c + "_" + id] = 1; });
       const e = o && o.eq && o.eq[c]; r.eq[c] = SKN[c].indexOf(e) >= 0 && (SKN[c][0] === e || r.own[c + "_" + e]) ? e : SKN[c][0]; });
     return r; };
-  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-06 build29";   // 画面に表示される版番号（キャッシュ確認用）
+  const SK = "overclocked_save_v1", COST = 100, VERSION = "2026-10-07 build30";   // 画面に表示される版番号（キャッシュ確認用）
   const PT_P = 1.5, PT_G = 1.2;   // 1ノーツあたりの基礎点（PERFECT／GOOD）
   const CLEAR_RATE = 2.5, FC_RATE = 6;   // ボーナス＝基礎点合計×この倍率（クリア時／ノーミスのフルコンボ時に加算）。さらに難易度倍率が掛かる
   const MULT = {easy:1, normal:1.5, hard:2.5, veryhard:4};
